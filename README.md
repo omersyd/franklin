@@ -43,10 +43,38 @@ A full-stack Django application that enables users to search for Google Play Sto
    - **Django Admin**: http://localhost:8000/admin
    - **Database Stats**: 9,659 apps and 35,929 reviews loaded ✅
 
-4. **Superuser Access** (if needed):
+4. **Create Test Users** (recommended for quick testing):
+   ```bash
+   docker exec -it franklin_web python manage.py seed_users
+   ```
+
+5. **Superuser Access** (if needed for admin):
    ```bash
    docker exec -it franklin_web python manage.py createsuperuser
    ```
+
+## 👤 Test Users (Quick Start)
+
+For immediate testing without creating accounts manually, use the seed command:
+
+```bash
+# With Docker
+docker exec -it franklin_web python manage.py seed_users
+
+# Local development
+python manage.py seed_users
+```
+
+**Pre-configured Test Accounts:**
+- **Regular User**: `testuser` / `testpass123` (can search apps, write reviews)
+- **Supervisor**: `supervisor` / `supervisor123` (can approve reviews, admin features)
+
+💡 **Why use seed users?**
+- No need to create accounts manually
+- Test different user roles immediately
+- Supervisor role isn't available through normal registration
+
+See [SEED_USERS.md](SEED_USERS.md) for detailed documentation.
 
 ### What happens during startup:
 - PostgreSQL database is created with required extensions
@@ -76,10 +104,19 @@ If you prefer to run without Docker:
    ```bash
    python manage.py migrate
    python manage.py load_initial_data
+   ```
+
+5. **Create test users** (recommended):
+   ```bash
+   python manage.py seed_users
+   ```
+
+6. **Create superuser** (optional - for Django admin):
+   ```bash
    python manage.py createsuperuser
    ```
 
-5. **Start development server**:
+7. **Start development server**:
    ```bash
    python manage.py runserver
    ```
@@ -114,6 +151,13 @@ franklin/
 
 - **Regular User**: Can search apps, view reviews, create reviews
 - **Supervisor**: All user permissions + approve/reject reviews
+
+## Management Commands
+
+- `python manage.py seed_users` - Create test users (testuser & supervisor)
+- `python manage.py list_users` - List all users and their roles
+- `python manage.py createsupervisor <username> <email>` - Create a supervisor user
+- `python manage.py load_initial_data` - Load sample data from CSV files
 
 ## Stopping the Application
 

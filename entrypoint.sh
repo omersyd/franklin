@@ -23,6 +23,10 @@ else:
     print('Superuser already exists')
 "
 
+# Create seed users for testing
+echo "Creating seed users..."
+python manage.py seed_users
+
 # Load initial data if not already loaded
 echo "Loading initial data..."
 python manage.py load_initial_data
