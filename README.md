@@ -28,7 +28,7 @@ A full-stack Django application that enables users to search for Google Play Sto
 
 1. **Clone and navigate to the project**:
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/omersyd/franklin.git
    cd franklin
    ```
 
