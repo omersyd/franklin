@@ -1,1068 +1,1419 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token }}">
-    <title>{{ title }} - Franklin Search</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+{% extends 'base.html' %}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
-        }
+{% block extra_css %}
+<style>
+    .search-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding: 2rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
 
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem 0;
-            text-align: center;
-        }
+    .search-container {
+        position: relative;
+        max-width: 600px;
+        margin: 0 auto;
+        margin-bottom: 2rem;
+    }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
+    .search-input {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        font-size: 1.1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        outline: none;
+        transition: border-color 0.3s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 
-        .search-section {
-            background: white;
-            border-radius: 10px;
-            padding: 2rem;
-            margin: -1rem 0 2rem 0;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
+    .search-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
 
-        .search-box {
-            position: relative;
-            margin-bottom: 1rem;
-        }
+    .filters {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 
-        .search-input {
-            width: 100%;
-            padding: 15px 20px;
-            font-size: 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
 
-        .search-input:focus {
-            border-color: #667eea;
-        }
+    .filter-label {
+        font-weight: 500;
+        color: #333;
+        font-size: 0.9rem;
+    }
 
-        .search-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background 0.3s;
-            margin-left: 1rem;
-        }
+    .filter-select, .filter-input {
+        padding: 0.7rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        min-width: 120px;
+    }
 
-        .search-btn:hover {
-            background: #5a67d8;
-        }
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
 
+    .autocomplete-item {
+        padding: 0.7rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s;
+    }
+
+    .autocomplete-item:hover, .autocomplete-item.highlighted {
+        background-color: #f8f9fa;
+    }
+
+    .results-section {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #f0f0f0;
+    }
+
+    .results-count {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .app-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s;
+        background: white;
+        cursor: pointer;
+    }
+
+    .app-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-color: #667eea;
+        transform: translateY(-2px);
+    }
+
+    .app-name {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+    }
+
+    .app-name:hover {
+        color: #667eea;
+    }
+
+    .app-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    .app-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .similarity-score {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 3rem;
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 3rem;
+        color: #666;
+    }
+
+    .no-results-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+        .load-more-btn {
+        display: block;
+        margin: 2rem auto 0;
+        padding: 0.8rem 2rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .load-more-btn:hover {
+        background: #5a6fd8;
+    }
+
+    .load-more-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    /* Pagination Controls */
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .page-btn {
+        padding: 0.5rem 1rem;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .page-btn:hover:not(:disabled) {
+        background: #e9ecef;
+        border-color: #adb5bd;
+    }
+
+    .page-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .page-info {
+        margin: 0 1rem;
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    /* Rating Input Styles */
+    .rating-input {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0;
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+    }
+
+    .rating-input input[type="radio"] {
+        display: none;
+    }
+
+    .rating-input label {
+        font-size: 1.5rem;
+        color: #d1d5db;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .rating-input input[type="radio"]:checked ~ label,
+    .rating-input label:hover,
+    .rating-input label:hover ~ label {
+        color: #fbbf24;
+    }
+
+    @media (max-width: 768px) {
         .filters {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
+            flex-direction: column;
+            align-items: stretch;
         }
 
-        .filter-select, .filter-input {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
-        .autocomplete-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-        }
-
-        .autocomplete-item {
-            padding: 10px 15px;
-            cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .autocomplete-item:hover {
-            background: #f8f9ff;
-        }
-
-        .results-section {
-            margin-top: 2rem;
-        }
-
-        .results-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .app-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .app-card {
-            background: white;
-            border-radius: 10px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .app-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .app-name {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #2d3748;
-        }
-
-        .app-category {
-            color: #667eea;
-            font-size: 14px;
-            margin-bottom: 0.5rem;
-        }
-
-        .app-rating {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .stars {
-            color: #fbbf24;
+        .filter-group {
+            width: 100%;
         }
 
         .app-meta {
-            font-size: 14px;
-            color: #6b7280;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            display: none;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .no-results {
-            text-align: center;
-            padding: 3rem;
-            color: #6b7280;
-            display: none;
-        }
-
-        /* Rating Input Styles */
-        .rating-input {
-            display: flex;
+            flex-direction: column;
             gap: 0.5rem;
-            margin: 1rem 0;
         }
 
-        .rating-input input[type="radio"] {
-            display: none;
-        }
-
-        .rating-input label {
-            font-size: 2rem;
-            color: #d1d5db;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-
-        .rating-input input[type="radio"]:checked ~ label,
-        .rating-input input[type="radio"]:checked + label {
-            color: #fbbf24;
-        }
-
-        .rating-input input[type="radio"]:hover ~ label,
-        .rating-input input[type="radio"]:hover + label {
-            color: #fbbf24;
-        }
-
-        /* Form styles */
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #333;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-            font-family: inherit;
-            resize: vertical;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        @media (max-width: 768px) {
-            .search-btn {
-                margin-left: 0;
-                margin-top: 1rem;
-                width: 100%;
-            }
-
-            .filters {
-                flex-direction: column;
-            }
-
-            .app-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.3s ease;
-        }
-
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 0;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 800px;
-            max-height: 80vh;
-            overflow: hidden;
-            animation: slideIn 0.3s ease;
-        }
-
-        .modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .search-header {
             padding: 1.5rem;
-            border-radius: 10px 10px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
+    }
 
-        .modal-title {
-            font-size: 1.5rem;
-            margin: 0;
-        }
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
 
-        .close {
-            color: white;
-            font-size: 2rem;
-            font-weight: bold;
-            cursor: pointer;
-            border: none;
-            background: none;
-            padding: 0;
-            line-height: 1;
-        }
+    .modal-content {
+        background-color: white;
+        margin: 2% auto;
+        padding: 0;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
 
-        .close:hover {
-            opacity: 0.7;
-        }
+    .modal-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px 10px 0 0;
+    }
 
-        .modal-body {
-            padding: 1.5rem;
-            max-height: 60vh;
-            overflow-y: auto;
-        }
+    .modal-title {
+        margin: 0;
+        color: white;
+        font-size: 1.5rem;
+    }
 
-        .app-info {
-            background: #f8fafc;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    .close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: white;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background-color 0.2s;
+    }
 
-        .app-details h3 {
-            color: #333;
-            margin: 0 0 0.5rem 0;
-            font-size: 1.2rem;
-        }
+    .close:hover {
+        background-color: rgba(255,255,255,0.2);
+    }
 
-        .app-stats {
-            font-size: 0.9rem;
-            color: #666;
-        }
+    .modal-body {
+        padding: 1.5rem;
+    }
 
-        .reviews-section h4 {
-            color: #333;
-            margin-bottom: 1rem;
-            font-size: 1.1rem;
-        }
+    .app-details {
+        background: #f8fafc;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
 
-        .review-item {
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            background: white;
-        }
+    .app-details h3 {
+        margin: 0 0 1rem 0;
+        color: #333;
+        font-size: 1.3rem;
+    }
 
-        .review-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            color: #666;
-        }
+    .app-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
 
-        .sentiment-badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
+    .app-info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
 
-        .sentiment-positive {
-            background-color: #d1fae5;
-            color: #065f46;
-        }
+    .app-info-label {
+        font-weight: 600;
+        color: #666;
+        font-size: 0.9rem;
+    }
 
-        .sentiment-negative {
-            background-color: #fee2e2;
-            color: #991b1b;
-        }
+    .app-info-value {
+        font-size: 1rem;
+        color: #333;
+    }
 
-        .sentiment-neutral {
-            background-color: #f3f4f6;
-            color: #374151;
-        }
+    .reviews-container {
+        max-height: 400px;
+        overflow-y: auto;
+    }
 
-        .review-text {
-            line-height: 1.6;
-            color: #333;
-        }
+    .review-item {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        transition: box-shadow 0.2s;
+    }
 
-        .pagination-controls {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e5e7eb;
-        }
+    .review-item:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
 
-        .page-btn {
-            padding: 0.5rem 1rem;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            background: white;
-            color: #374151;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
+    .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.8rem;
+    }
 
-        .page-btn:hover:not(:disabled) {
-            background: #f3f4f6;
-        }
+    .review-rating {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        color: #f59e0b;
+    }
 
-        .page-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+    .review-date {
+        color: #666;
+        font-size: 0.9rem;
+    }
 
-        .page-info {
-            color: #6b7280;
-            font-size: 0.9rem;
-        }
+    .review-text {
+        line-height: 1.6;
+        color: #333;
+        margin-bottom: 0.8rem;
+    }
 
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+    .review-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9rem;
+        color: #666;
+    }
 
-        @keyframes slideIn {
-            from { transform: translateY(-50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="container">
-            <h1>Franklin Search</h1>
-            <p>Discover Google Play Store Apps with Smart Search</p>
+    .sentiment-badge {
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .sentiment-positive {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .sentiment-negative {
+        background: #fecaca;
+        color: #991b1b;
+    }
+
+    .sentiment-neutral {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .reviews-loading {
+        text-align: center;
+        padding: 2rem;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="search-header">
+    <h1 style="font-size: 2.5rem; margin-bottom: 1rem; color: #333;">🔍 Search Apps</h1>
+    <p style="color: #666; font-size: 1.1rem;">
+        Find your perfect app from thousands of Google Play Store applications
+    </p>
+</div>
+
+<div class="search-container">
+    <input
+        type="text"
+        id="searchInput"
+        class="search-input"
+        placeholder="{{ placeholder_text }}"
+        autocomplete="off"
+    >
+    <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+</div>
+
+<div class="filters">
+    <div class="filter-group">
+        <label class="filter-label">Category</label>
+        <select id="categoryFilter" class="filter-select">
+            <option value="">All Categories</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label class="filter-label">Min Rating</label>
+        <input type="number" id="ratingFilter" class="filter-input" placeholder="e.g. 4.0" min="0" max="5" step="0.1">
+    </div>
+    <div class="filter-group">
+        <label class="filter-label">Results per page</label>
+        <select id="limitFilter" class="filter-select">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+        </select>
+    </div>
+</div>
+
+<div id="resultsSection" class="results-section" style="display: none;">
+    <div class="results-header">
+        <div class="results-count" id="resultsCount">0 results found</div>
+    </div>
+    <div id="searchResults"></div>
+    <button id="loadMoreBtn" class="load-more-btn" style="display: none;">Load More</button>
+</div>
+
+<div id="noResults" class="no-results" style="display: none;">
+    <div class="no-results-icon">🔍</div>
+    <h3>No apps found</h3>
+    <p>Try adjusting your search terms or filters</p>
+</div>
+
+<div id="loading" class="loading" style="display: none;">
+    <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+    <div>Searching apps...</div>
+</div>
+
+<!-- App Reviews Modal -->
+<div id="reviewsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalAppName">App Reviews</h2>
+            <button class="close" onclick="closeReviewsModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="appDetails" class="app-details">
+                <!-- App details will be populated here -->
+            </div>
+            <div class="app-actions" style="margin: 1rem 0; text-align: center;">
+                <button id="writeReviewBtn" class="btn btn-primary" onclick="openReviewForm()" style="background: #667eea; color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: background 0.3s;">
+                    Write Review
+                </button>
+            </div>
+            <div id="reviewsContainer" class="reviews-container">
+                <!-- Reviews will be populated here -->
+            </div>
+            <div id="reviewsLoading" class="reviews-loading" style="display: none;">
+                <div style="text-align: center; padding: 2rem;">
+                    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">⏳</div>
+                    <div>Loading reviews...</div>
+                </div>
+            </div>
+            <div id="noReviews" style="display: none; text-align: center; padding: 2rem; color: #666;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📝</div>
+                <div>No reviews available for this app</div>
+            </div>
+            <div id="reviewsPagination" class="pagination-controls" style="display: none; text-align: center; margin-top: 1.5rem; gap: 1rem;">
+                <button id="prevBtn" class="page-btn" onclick="changePage(-1)" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Previous</button>
+                <span id="pageInfo" class="page-info" style="margin: 0 1rem; font-size: 0.9rem; color: #666;"></span>
+                <button id="nextBtn" class="page-btn" onclick="changePage(1)" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Next</button>
+            </div>
+            <button id="loadMoreReviewsBtn" class="load-more-btn" style="display: none;" onclick="loadMoreReviews()">
+                Load More Reviews
+            </button>
         </div>
     </div>
+</div>
 
-    <div class="container">
-        <div class="search-section">
-            <div class="search-box">
-                <input
-                    type="text"
-                    id="searchInput"
-                    class="search-input"
-                    placeholder="{{ placeholder_text }}"
-                    autocomplete="off"
-                >
-                <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
-            </div>
-
-            <div class="filters">
-                <select id="categoryFilter" class="filter-select">
-                    <option value="">All Categories</option>
-                </select>
-
-                <input
-                    type="number"
-                    id="minRatingFilter"
-                    class="filter-input"
-                    placeholder="Min Rating (1-5)"
-                    min="1"
-                    max="5"
-                    step="0.1"
-                >
-
-                <button id="searchBtn" class="search-btn">Search</button>
-            </div>
+<!-- Review Submission Modal -->
+<div id="reviewModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h2>Write a Review</h2>
+            <span class="close" onclick="closeReviewForm()">&times;</span>
         </div>
-
-        <div class="results-section">
-            <div class="results-header" id="resultsHeader" style="display: none;">
-                <h2>Search Results</h2>
-                <span id="resultsCount"></span>
+        <div class="modal-body">
+            <div class="review-app-info" style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                <h4 id="reviewAppTitle" style="margin: 0 0 0.5rem 0;"></h4>
+                <div style="color: #666; font-size: 0.9rem;">
+                    <span id="reviewAppCategory"></span> •
+                    <span id="reviewAppRating"></span>★
+                </div>
             </div>
-
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Searching apps...</p>
+            <form id="reviewForm" onsubmit="submitReview(event)">
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Your Rating:</label>
+                    <div class="rating-input" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                        <input type="radio" id="star5" name="rating" value="5" style="display: none;">
+                        <label for="star5" style="font-size: 1.5rem; color: #d1d5db; cursor: pointer; transition: color 0.2s;">★</label>
+                        <input type="radio" id="star4" name="rating" value="4" style="display: none;">
+                        <label for="star4" style="font-size: 1.5rem; color: #d1d5db; cursor: pointer; transition: color 0.2s;">★</label>
+                        <input type="radio" id="star3" name="rating" value="3" style="display: none;">
+                        <label for="star3" style="font-size: 1.5rem; color: #d1d5db; cursor: pointer; transition: color 0.2s;">★</label>
+                        <input type="radio" id="star2" name="rating" value="2" style="display: none;">
+                        <label for="star2" style="font-size: 1.5rem; color: #d1d5db; cursor: pointer; transition: color 0.2s;">★</label>
+                        <input type="radio" id="star1" name="rating" value="1" style="display: none;">
+                        <label for="star1" style="font-size: 1.5rem; color: #d1d5db; cursor: pointer; transition: color 0.2s;">★</label>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="reviewText" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Your Review:</label>
+                    <textarea
+                        id="reviewText"
+                        name="review_text"
+                        required
+                        minlength="10"
+                        rows="4"
+                        placeholder="Share your experience with this app..."
+                        style="width: 100%; padding: 0.7rem; border: 1px solid #ddd; border-radius: 6px; resize: vertical; font-family: inherit;"
+                    ></textarea>
+                    <small style="color: #666; font-size: 0.8rem;">Minimum 10 characters required</small>
+                </div>
+                <div class="form-actions" style="text-align: right; gap: 1rem; display: flex; justify-content: flex-end;">
+                    <button type="button" onclick="closeReviewForm()" style="background: #6c757d; color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 6px; cursor: pointer;">Cancel</button>
+                    <button type="submit" style="background: #667eea; color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 6px; cursor: pointer;">Submit Review</button>
+                </div>
+            </form>
+            <div id="reviewSubmissionMessage" style="display: none; margin-top: 1rem; padding: 1rem; border-radius: 6px;">
+                <!-- Success/error message will be shown here -->
             </div>
-
-            <div class="no-results" id="noResults">
-                <h3>No apps found</h3>
-                <p>Try adjusting your search terms or filters</p>
-            </div>
-
-            <div id="appGrid" class="app-grid"></div>
         </div>
     </div>
+</div>
 
-    <!-- Reviews Modal -->
-    <div id="reviewsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalAppName" class="modal-title">App Reviews</h2>
-                <button class="close" onclick="closeModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="appInfo" class="app-info">
-                    <div class="app-details">
-                        <h3 id="modalAppTitle"></h3>
-                        <div class="app-stats">
-                            <span id="modalAppCategory"></span> •
-                            <span id="modalAppRating"></span>★ •
-                            <span id="modalAppInstalls"></span> installs
-                        </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Search functionality
+    let searchTimeout;
+    let currentResults = [];
+    let currentPage = 1;
+    let currentQuery = '';
+    let currentFilters = {};
+    let hasMoreResults = true;
+
+    // Modal and review variables
+    let currentApp = null;
+    let reviewCurrentPage = 1;
+    let reviewTotalPages = 1;
+    let isAuthenticated = "{% if user.is_authenticated %}true{% else %}false{% endif %}";
+
+    // Review pagination variables
+    let reviewsCurrentPage = 1;
+    let reviewsHasMore = false;
+
+    const searchInput = document.getElementById('searchInput');
+    const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+    const resultsSection = document.getElementById('resultsSection');
+    const searchResults = document.getElementById('searchResults');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const loading = document.getElementById('loading');
+    const noResults = document.getElementById('noResults');
+    const resultsCount = document.getElementById('resultsCount');
+
+    // Initialize categories
+    fetchCategories();
+
+    // Search input event listener
+    searchInput.addEventListener('input', handleSearchInput);
+    searchInput.addEventListener('keydown', handleSearchKeydown);
+    searchInput.addEventListener('focus', showAutocomplete);
+
+    // Filter event listeners
+    document.getElementById('categoryFilter').addEventListener('change', performSearch);
+    document.getElementById('ratingFilter').addEventListener('input', performSearch);
+    document.getElementById('limitFilter').addEventListener('change', performSearch);
+
+    // Load more button
+    loadMoreBtn.addEventListener('click', loadMore);
+
+    // Hide autocomplete when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
+            hideAutocomplete();
+        }
+    });
+
+    function handleSearchInput(e) {
+        const query = e.target.value.trim();
+
+        // Clear previous timeout
+        clearTimeout(searchTimeout);
+
+        // Show autocomplete for queries >= 3 characters
+        if (query.length >= 3) {
+            searchTimeout = setTimeout(() => {
+                fetchAutocomplete(query);
+            }, 300);
+        } else {
+            hideAutocomplete();
+            if (query.length === 0) {
+                clearResults();
+            }
+        }
+    }
+
+    function handleSearchKeydown(e) {
+        const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+        const highlighted = autocompleteDropdown.querySelector('.autocomplete-item.highlighted');
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlighted) {
+                selectAutocompleteItem(highlighted);
+            } else {
+                performSearch();
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            navigateAutocomplete(items, highlighted, 'down');
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            navigateAutocomplete(items, highlighted, 'up');
+        } else if (e.key === 'Escape') {
+            hideAutocomplete();
+        }
+    }
+
+    function navigateAutocomplete(items, highlighted, direction) {
+        let newIndex = 0;
+
+        if (highlighted) {
+            highlighted.classList.remove('highlighted');
+            const currentIndex = Array.from(items).indexOf(highlighted);
+            newIndex = direction === 'down'
+                ? (currentIndex + 1) % items.length
+                : currentIndex === 0 ? items.length - 1 : currentIndex - 1;
+        }
+
+        if (items[newIndex]) {
+            items[newIndex].classList.add('highlighted');
+        }
+    }
+
+    function fetchAutocomplete(query) {
+        const url = `/search/api/autocomplete/?q=${encodeURIComponent(query)}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                displayAutocomplete(data.suggestions);
+            })
+            .catch(error => {
+                console.error('Autocomplete error:', error);
+                hideAutocomplete();
+            });
+    }
+
+    function displayAutocomplete(suggestions) {
+        if (suggestions.length === 0) {
+            hideAutocomplete();
+            return;
+        }
+
+        autocompleteDropdown.innerHTML = suggestions
+            .map(app => `
+                <div class="autocomplete-item" data-name="${app.name}" data-id="${app.id}">
+                    <strong>${app.name}</strong>
+                    <span style="color: #666; margin-left: 0.5rem;">${app.category}</span>
+                    ${app.rating ? `<span style="color: #f59e0b; margin-left: 0.5rem;">★ ${app.rating}</span>` : ''}
+                </div>
+            `)
+            .join('');
+
+        // Add click listeners to autocomplete items
+        autocompleteDropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+            item.addEventListener('click', () => selectAutocompleteItem(item));
+        });
+
+        showAutocomplete();
+    }
+
+    function selectAutocompleteItem(item) {
+        const name = item.dataset.name;
+        searchInput.value = name;
+        hideAutocomplete();
+        performSearch();
+    }
+
+    function showAutocomplete() {
+        autocompleteDropdown.style.display = 'block';
+    }
+
+    function hideAutocomplete() {
+        autocompleteDropdown.style.display = 'none';
+        autocompleteDropdown.querySelectorAll('.highlighted').forEach(item => {
+            item.classList.remove('highlighted');
+        });
+    }
+
+    function performSearch(resetResults = true) {
+        const query = searchInput.value.trim();
+
+        if (query.length < 3) {
+            if (query.length === 0) {
+                clearResults();
+            }
+            return;
+        }
+
+        if (resetResults) {
+            currentResults = [];
+            currentPage = 1;
+            hasMoreResults = true;
+        }
+
+        currentQuery = query;
+        currentFilters = {
+            category: document.getElementById('categoryFilter').value,
+            min_rating: document.getElementById('ratingFilter').value,
+            limit: document.getElementById('limitFilter').value
+        };
+
+        hideAutocomplete();
+        showLoading();
+
+        const params = new URLSearchParams({
+            q: query,
+            limit: currentFilters.limit,
+            ...currentFilters
+        });
+
+        // Remove empty parameters
+        for (const [key, value] of [...params.entries()]) {
+            if (!value) params.delete(key);
+        }
+
+        fetch(`/search/api/search/?${params}`)
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+
+                if (resetResults) {
+                    currentResults = data.results;
+                    displayResults(data.results, data.count);
+                } else {
+                    currentResults = [...currentResults, ...data.results];
+                    appendResults(data.results);
+                }
+
+                hasMoreResults = data.results.length >= currentFilters.limit;
+                updateLoadMoreButton();
+            })
+            .catch(error => {
+                console.error('Search error:', error);
+                hideLoading();
+                showError('An error occurred while searching. Please try again.');
+            });
+    }
+
+    function loadMore() {
+        currentPage++;
+        // For now, just perform the same search (API doesn't support pagination yet)
+        // In a real implementation, you'd add offset/page parameters
+        performSearch(false);
+    }
+
+    function displayResults(results, totalCount) {
+        if (results.length === 0) {
+            showNoResults();
+            return;
+        }
+
+        hideNoResults();
+        resultsSection.style.display = 'block';
+        resultsCount.textContent = `${totalCount} result${totalCount !== 1 ? 's' : ''} found for "${currentQuery}"`;
+
+        searchResults.innerHTML = results.map(app => createAppCard(app)).join('');
+
+        // Add click listeners to app cards
+        searchResults.querySelectorAll('.app-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const appId = card.dataset.appId;
+                openReviewsModal(appId);
+            });
+            card.setAttribute('data-has-listener', 'true');
+        });
+    }
+
+    function appendResults(results) {
+        const newCardsHTML = results.map(app => createAppCard(app)).join('');
+        searchResults.insertAdjacentHTML('beforeend', newCardsHTML);
+
+        // Add click listeners to new cards
+        const newCards = searchResults.querySelectorAll('.app-card:not([data-has-listener])');
+        newCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const appId = card.dataset.appId;
+                openReviewsModal(appId);
+            });
+            card.setAttribute('data-has-listener', 'true');
+        });
+    }
+
+    function createAppCard(app) {
+        const rating = app.rating ? parseFloat(app.rating).toFixed(1) : 'N/A';
+        const installs = app.installs || 'Unknown';
+        const similarity = (app.similarity_score * 100).toFixed(0);
+
+        return `
+            <div class="app-card" data-app-id="${app.id}">
+                <div class="app-name">${app.name}</div>
+                <div class="app-meta">
+                    <div class="app-meta-item">
+                        <span>📱</span>
+                        <span>${app.category || 'Unknown'}</span>
                     </div>
-                    <div>
-                        <button id="writeReviewBtn" class="btn btn-primary" onclick="openReviewForm()">
-                            Write Review
-                        </button>
+                    <div class="app-meta-item">
+                        <span>⭐</span>
+                        <span>${rating}</span>
                     </div>
-                </div>                <div class="reviews-section">
-                    <h4 id="reviewsTitle">Loading reviews...</h4>
-                    <div id="reviewsList"></div>
-                    <div id="reviewsPagination" class="pagination-controls" style="display: none;">
-                        <button id="prevBtn" class="page-btn" onclick="changePage(-1)">Previous</button>
-                        <span id="pageInfo" class="page-info"></span>
-                        <button id="nextBtn" class="page-btn" onclick="changePage(1)">Next</button>
+                    <div class="app-meta-item">
+                        <span>📊</span>
+                        <span>${installs} installs</span>
+                    </div>
+                    <div class="app-meta-item">
+                        <span>💬</span>
+                        <span>${app.reviews_count || 0} reviews</span>
+                    </div>
+                    <div class="similarity-score">
+                        ${similarity}% match
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+        `;
+    }
 
-    <!-- Review Submission Modal -->
-    <div id="reviewModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Write a Review</h2>
-                <button class="close" onclick="closeReviewForm()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="reviewAppInfo" class="app-info">
-                    <div class="app-details">
-                        <h3 id="reviewAppTitle"></h3>
-                        <div class="app-stats">
-                            <span id="reviewAppCategory"></span> •
-                            <span id="reviewAppRating"></span>★
-                        </div>
-                    </div>
-                </div>
+    function updateLoadMoreButton() {
+        if (hasMoreResults && currentResults.length >= currentFilters.limit) {
+            loadMoreBtn.style.display = 'block';
+            loadMoreBtn.disabled = false;
+        } else {
+            loadMoreBtn.style.display = 'none';
+        }
+    }
 
-                <form id="reviewForm">
-                    <div class="form-group">
-                        <label for="reviewRating">Your Rating:</label>
-                        <div class="rating-input">
-                            <input type="radio" name="rating" value="1" id="star1">
-                            <label for="star1">★</label>
-                            <input type="radio" name="rating" value="2" id="star2">
-                            <label for="star2">★</label>
-                            <input type="radio" name="rating" value="3" id="star3">
-                            <label for="star3">★</label>
-                            <input type="radio" name="rating" value="4" id="star4">
-                            <label for="star4">★</label>
-                            <input type="radio" name="rating" value="5" id="star5">
-                            <label for="star5">★</label>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="reviewText">Your Review:</label>
-                        <textarea
-                            id="reviewText"
-                            class="form-control"
-                            rows="4"
-                            placeholder="Share your experience with this app..."
-                            minlength="10"
-                            required
-                        ></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary" style="width: 100%;">
-                            Submit Review
-                        </button>
-                    </div>
-                </form>
-
-                <div id="reviewSubmissionMessage" style="display: none; text-align: center; padding: 1rem;"></div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Authentication status from Django
-        const isAuthenticated = "{{ is_authenticated|yesno:'true,false' }}";
-        const username = "{{ username|default:'' }}";
-
-        let searchTimeout;
-        let autocompleteTimeout;
-
-        // DOM elements
-        const searchInput = document.getElementById('searchInput');
-        const searchBtn = document.getElementById('searchBtn');
-        const categoryFilter = document.getElementById('categoryFilter');
-        const minRatingFilter = document.getElementById('minRatingFilter');
-        const autocompleteDropdown = document.getElementById('autocompleteDropdown');
-        const loading = document.getElementById('loading');
-        const noResults = document.getElementById('noResults');
-        const appGrid = document.getElementById('appGrid');
-        const resultsHeader = document.getElementById('resultsHeader');
-        const resultsCount = document.getElementById('resultsCount');
-
-        // Load categories on page load
-        async function loadCategories() {
-            try {
-                const response = await fetch('/search/api/categories/');
-                const data = await response.json();
-
+    function fetchCategories() {
+        fetch('/search/api/categories/')
+            .then(response => response.json())
+            .then(data => {
+                const categorySelect = document.getElementById('categoryFilter');
                 data.categories.forEach(category => {
                     const option = document.createElement('option');
                     option.value = category;
                     option.textContent = category;
-                    categoryFilter.appendChild(option);
+                    categorySelect.appendChild(option);
                 });
-            } catch (error) {
-                console.error('Error loading categories:', error);
-            }
-        }
-
-        // Autocomplete functionality
-        async function showAutocomplete(query) {
-            if (query.length < 3) {
-                hideAutocomplete();
-                return;
-            }
-
-            try {
-                const response = await fetch(`/search/api/autocomplete/?q=${encodeURIComponent(query)}&limit=5`);
-                const data = await response.json();
-
-                if (data.suggestions.length > 0) {
-                    autocompleteDropdown.innerHTML = '';
-
-                    data.suggestions.forEach(app => {
-                        const item = document.createElement('div');
-                        item.className = 'autocomplete-item';
-                        item.innerHTML = `
-                            <div style="font-weight: 500;">${app.name}</div>
-                            <div style="font-size: 12px; color: #666;">${app.category} • ${app.rating}★</div>
-                        `;
-                        item.addEventListener('click', () => {
-                            searchInput.value = app.name;
-                            hideAutocomplete();
-                            performSearch();
-                        });
-                        autocompleteDropdown.appendChild(item);
-                    });
-
-                    autocompleteDropdown.style.display = 'block';
-                } else {
-                    hideAutocomplete();
-                }
-            } catch (error) {
-                console.error('Error fetching autocomplete:', error);
-            }
-        }
-
-        function hideAutocomplete() {
-            autocompleteDropdown.style.display = 'none';
-        }
-
-        // Search functionality
-        async function performSearch() {
-            const query = searchInput.value.trim();
-            const category = categoryFilter.value;
-            const minRating = minRatingFilter.value;
-
-            if (query.length < 3) {
-                alert('Please enter at least 3 characters to search');
-                return;
-            }
-
-            // Show loading
-            loading.style.display = 'block';
-            appGrid.innerHTML = '';
-            resultsHeader.style.display = 'none';
-            noResults.style.display = 'none';
-            hideAutocomplete();
-
-            // Build query parameters
-            const params = new URLSearchParams({
-                q: query,
-                limit: 20
+            })
+            .catch(error => {
+                console.error('Error fetching categories:', error);
             });
+    }
 
-            if (category) params.append('category', category);
-            if (minRating) params.append('min_rating', minRating);
+    function showLoading() {
+        loading.style.display = 'block';
+        resultsSection.style.display = 'none';
+        noResults.style.display = 'none';
+    }
 
-            try {
-                const response = await fetch(`/search/api/search/?${params}`);
-                const data = await response.json();
+    function hideLoading() {
+        loading.style.display = 'none';
+    }
 
-                loading.style.display = 'none';
+    function showNoResults() {
+        noResults.style.display = 'block';
+        resultsSection.style.display = 'none';
+    }
 
-                if (data.results && data.results.length > 0) {
-                    displayResults(data.results);
-                    resultsHeader.style.display = 'flex';
-                    resultsCount.textContent = `${data.count} apps found`;
-                } else {
-                    noResults.style.display = 'block';
-                }
-            } catch (error) {
-                loading.style.display = 'none';
-                console.error('Error performing search:', error);
-                alert('Error performing search. Please try again.');
-            }
-        }
+    function hideNoResults() {
+        noResults.style.display = 'none';
+    }
 
-        // Display search results
-        function displayResults(apps) {
-            appGrid.innerHTML = '';
+    function clearResults() {
+        resultsSection.style.display = 'none';
+        noResults.style.display = 'none';
+        currentResults = [];
+        currentPage = 1;
+        hasMoreResults = true;
+    }
 
-            apps.forEach(app => {
-                const card = document.createElement('div');
-                card.className = 'app-card';
+    function showError(message) {
+        // Simple error display - in a real app you'd have proper error UI
+        alert(message);
+    }
 
-                const rating = app.rating ? parseFloat(app.rating).toFixed(1) : 'N/A';
-                const stars = app.rating ? '★'.repeat(Math.floor(app.rating)) + (app.rating % 1 >= 0.5 ? '☆' : '') : '';
+    // Modal functionality for app reviews
+    let currentModalAppId = null;
+    let currentReviewsPage = 1;
+    let hasMoreReviews = true;
 
-                card.innerHTML = `
-                    <div class="app-name">${app.name}</div>
-                    <div class="app-category">${app.category}</div>
-                    <div class="app-rating">
-                        <span class="stars">${stars}</span>
-                        <span>${rating}</span>
-                        <span style="color: #9ca3af;">(${app.reviews_count || 0} reviews)</span>
-                    </div>
-                    <div class="app-meta">
-                        <span>Installs: ${app.installs || 'Unknown'}</span>
-                        <span>${app.app_type || 'Free'}</span>
-                    </div>
-                `;
+    function openReviewsModal(appId) {
+        currentModalAppId = appId;
+        currentReviewsPage = 1;
+        reviewCurrentPage = 1;  // Initialize review pagination
+        hasMoreReviews = true;
 
-                card.addEventListener('click', () => {
-                    openReviewsModal(app);
-                });
+        const modal = document.getElementById('reviewsModal');
+        const appDetails = document.getElementById('appDetails');
+        const reviewsContainer = document.getElementById('reviewsContainer');
+        const reviewsLoading = document.getElementById('reviewsLoading');
+        const noReviews = document.getElementById('noReviews');
+        const loadMoreBtn = document.getElementById('loadMoreReviewsBtn');
+        const paginationDiv = document.getElementById('reviewsPagination');
 
-                appGrid.appendChild(card);
-            });
-        }
+        // Reset modal content
+        appDetails.innerHTML = '';
+        reviewsContainer.innerHTML = '';
+        reviewsLoading.style.display = 'block';
+        noReviews.style.display = 'none';
+        loadMoreBtn.style.display = 'none';
+        paginationDiv.style.display = 'none';
 
-        // Modal variables
-        let currentApp = null;
-        let currentPage = 1;
-        let totalPages = 1;
+        // Show modal
+        modal.style.display = 'block';
 
-        // Modal functions
-        function openReviewsModal(app) {
-            currentApp = app;
-            currentPage = 1;
+        // Fetch app details and reviews
+        Promise.all([
+            fetch(`/search/api/app/${appId}/`),
+            fetch(`/search/api/app/${appId}/reviews/?page=1&limit=10`)
+        ])
+        .then(responses => Promise.all(responses.map(r => r.json())))
+        .then(([appData, reviewsData]) => {
+            reviewsLoading.style.display = 'none';
 
-            // Update modal with app info
-            document.getElementById('modalAppName').textContent = `${app.name} Reviews`;
-            document.getElementById('modalAppTitle').textContent = app.name;
-            document.getElementById('modalAppCategory').textContent = app.category;
-            document.getElementById('modalAppRating').textContent = app.rating || 'N/A';
-            document.getElementById('modalAppInstalls').textContent = app.installs || 'Unknown';
-
-            // Show modal
-            document.getElementById('reviewsModal').style.display = 'block';
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            // Store current app for review form
+            currentApp = appData;
 
             // Update Write Review button based on authentication
             const writeReviewBtn = document.getElementById('writeReviewBtn');
-            if (isAuthenticated) {
-                writeReviewBtn.textContent = 'Write Review';
-                writeReviewBtn.onclick = openReviewForm;
-            } else {
-                writeReviewBtn.textContent = 'Login to Write Review';
-                writeReviewBtn.onclick = function() {
-                    window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
-                };
+            if (writeReviewBtn) {
+                if (isAuthenticated) {
+                    writeReviewBtn.textContent = 'Write Review';
+                    writeReviewBtn.onclick = openReviewForm;
+                    writeReviewBtn.style.display = 'inline-block';
+                } else {
+                    writeReviewBtn.textContent = 'Login to Write Review';
+                    writeReviewBtn.onclick = function() {
+                        window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
+                    };
+                    writeReviewBtn.style.display = 'inline-block';
+                }
             }
 
-            // Load reviews
-            loadReviews(app.id, 1);
+            // Update modal title
+            document.getElementById('modalAppName').textContent = appData.name;
+
+            // Display app details
+            displayAppDetails(appData);
+
+            // Display reviews
+            if (reviewsData.reviews && reviewsData.reviews.length > 0) {
+                displayReviews(reviewsData.reviews, true);
+
+                // Update pagination variables
+                reviewCurrentPage = reviewsData.pagination.page;
+                reviewTotalPages = reviewsData.pagination.pages;
+
+                // Show pagination if more than one page
+                if (reviewTotalPages > 1) {
+                    updateReviewsPagination();
+                    paginationDiv.style.display = 'flex';
+                    loadMoreBtn.style.display = 'none';  // Hide load more when using pagination
+                } else {
+                    // Use load more for single page or remaining items
+                    hasMoreReviews = reviewsData.pagination.page < reviewsData.pagination.pages;
+                    updateLoadMoreReviewsButton();
+                }
+            } else {
+                noReviews.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching app data:', error);
+            reviewsLoading.style.display = 'none';
+            showError('Failed to load app details. Please try again.');
+        });
+    }
+
+    function closeReviewsModal() {
+        const modal = document.getElementById('reviewsModal');
+        modal.style.display = 'none';
+        currentModalAppId = null;
+    }
+
+    function displayAppDetails(app) {
+        const appDetails = document.getElementById('appDetails');
+        const rating = app.rating ? parseFloat(app.rating).toFixed(1) : 'N/A';
+
+        appDetails.innerHTML = `
+            <h3>${app.name}</h3>
+            <div class="app-info-grid">
+                <div class="app-info-item">
+                    <div class="app-info-label">Category</div>
+                    <div class="app-info-value">${app.category || 'Unknown'}</div>
+                </div>
+                <div class="app-info-item">
+                    <div class="app-info-label">Rating</div>
+                    <div class="app-info-value">⭐ ${rating}</div>
+                </div>
+                <div class="app-info-item">
+                    <div class="app-info-label">Installs</div>
+                    <div class="app-info-value">${app.installs || 'Unknown'}</div>
+                </div>
+                <div class="app-info-item">
+                    <div class="app-info-label">Reviews</div>
+                    <div class="app-info-value">${app.reviews_count || 0}</div>
+                </div>
+                <div class="app-info-item">
+                    <div class="app-info-label">Type</div>
+                    <div class="app-info-value">${app.app_type || 'Unknown'}</div>
+                </div>
+                ${app.size ? `
+                <div class="app-info-item">
+                    <div class="app-info-label">Size</div>
+                    <div class="app-info-value">${app.size}</div>
+                </div>` : ''}
+            </div>
+        `;
+    }
+
+    function displayReviews(reviews, clearPrevious = false) {
+        const reviewsContainer = document.getElementById('reviewsContainer');
+
+        if (clearPrevious) {
+            reviewsContainer.innerHTML = '';
         }
 
-        function closeModal() {
-            document.getElementById('reviewsModal').style.display = 'none';
-            document.body.style.overflow = 'auto'; // Restore scrolling
-            currentApp = null;
+        const reviewsHTML = reviews.map(review => createReviewItem(review)).join('');
+        reviewsContainer.insertAdjacentHTML('beforeend', reviewsHTML);
+    }
+
+    function createReviewItem(review) {
+        const sentimentClass = getSentimentClass(review.sentiment);
+        const rating = review.rating ? '⭐'.repeat(Math.round(review.rating)) : '';
+        const date = review.created_at ? new Date(review.created_at).toLocaleDateString() : '';
+
+        return `
+            <div class="review-item">
+                <div class="review-header">
+                    <div class="review-rating">
+                        ${rating} ${review.rating ? `(${review.rating})` : ''}
+                    </div>
+                    <div class="review-date">${date}</div>
+                </div>
+                <div class="review-text">${review.review_text}</div>
+                <div class="review-footer">
+                    <div class="review-user">
+                        ${review.user ? `By: ${review.user}` : 'Anonymous'}
+                    </div>
+                    <div class="sentiment-badge ${sentimentClass}">
+                        ${review.sentiment || 'neutral'}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function getSentimentClass(sentiment) {
+        if (!sentiment) return 'sentiment-neutral';
+
+        const sentimentLower = sentiment.toLowerCase();
+        if (sentimentLower.includes('positive')) return 'sentiment-positive';
+        if (sentimentLower.includes('negative')) return 'sentiment-negative';
+        return 'sentiment-neutral';
+    }
+
+    function loadMoreReviews() {
+        if (!currentModalAppId || !hasMoreReviews) return;
+
+        currentReviewsPage++;
+        const loadMoreBtn = document.getElementById('loadMoreReviewsBtn');
+
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Loading...';
+
+        fetch(`/search/api/app/${currentModalAppId}/reviews/?page=${currentReviewsPage}&limit=10`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.reviews && data.reviews.length > 0) {
+                    displayReviews(data.reviews, false);
+                    hasMoreReviews = data.pagination.page < data.pagination.pages;
+                    updateLoadMoreReviewsButton();
+                } else {
+                    hasMoreReviews = false;
+                    loadMoreBtn.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading more reviews:', error);
+                showError('Failed to load more reviews. Please try again.');
+            })
+            .finally(() => {
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.textContent = 'Load More Reviews';
+            });
+    }
+
+    function updateLoadMoreReviewsButton() {
+        const loadMoreBtn = document.getElementById('loadMoreReviewsBtn');
+        if (hasMoreReviews) {
+            loadMoreBtn.style.display = 'block';
+        } else {
+            loadMoreBtn.style.display = 'none';
         }
+    }
 
-        async function loadReviews(appId, page = 1) {
-            try {
-                document.getElementById('reviewsTitle').textContent = 'Loading reviews...';
-                document.getElementById('reviewsList').innerHTML = '<div class="spinner"></div>';
-                document.getElementById('reviewsPagination').style.display = 'none';
+    // Pagination functions for reviews
+    function updateReviewsPagination() {
+        const pageInfo = document.getElementById('pageInfo');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
 
-                const response = await fetch(`/search/api/app/${appId}/reviews/?page=${page}&limit=5`);
-                const data = await response.json();
+        pageInfo.textContent = `Page ${reviewCurrentPage} of ${reviewTotalPages}`;
+        prevBtn.disabled = reviewCurrentPage <= 1;
+        nextBtn.disabled = reviewCurrentPage >= reviewTotalPages;
+    }
+
+    function changePage(direction) {
+        if (!currentModalAppId) return;
+
+        const newPage = reviewCurrentPage + direction;
+        if (newPage >= 1 && newPage <= reviewTotalPages) {
+            loadReviewsPage(currentModalAppId, newPage);
+        }
+    }
+
+    function loadReviewsPage(appId, page) {
+        const reviewsLoading = document.getElementById('reviewsLoading');
+        const reviewsContainer = document.getElementById('reviewsContainer');
+        const paginationDiv = document.getElementById('reviewsPagination');
+
+        reviewsLoading.style.display = 'block';
+        reviewsContainer.innerHTML = '';
+        paginationDiv.style.display = 'none';
+
+        fetch(`/search/api/app/${appId}/reviews/?page=${page}&limit=10`)
+            .then(response => response.json())
+            .then(data => {
+                reviewsLoading.style.display = 'none';
 
                 if (data.reviews && data.reviews.length > 0) {
-                    document.getElementById('reviewsTitle').textContent =
-                        `Reviews (${data.pagination.total} total)`;
-
-                    renderReviews(data.reviews);
-                    updatePagination(data.pagination);
+                    displayReviews(data.reviews, true);
+                    reviewCurrentPage = data.pagination.page;
+                    reviewTotalPages = data.pagination.pages;
+                    updateReviewsPagination();
+                    paginationDiv.style.display = 'flex';
                 } else {
-                    document.getElementById('reviewsTitle').textContent = 'No reviews available';
-                    document.getElementById('reviewsList').innerHTML =
-                        '<p style="text-align: center; color: #666; padding: 2rem;">No reviews found for this app.</p>';
+                    document.getElementById('noReviews').style.display = 'block';
                 }
-            } catch (error) {
-                console.error('Error loading reviews:', error);
-                document.getElementById('reviewsTitle').textContent = 'Error loading reviews';
-                document.getElementById('reviewsList').innerHTML =
-                    '<p style="text-align: center; color: #dc2626; padding: 2rem;">Failed to load reviews. Please try again.</p>';
-            }
+            })
+            .catch(error => {
+                console.error('Error loading reviews page:', error);
+                reviewsLoading.style.display = 'none';
+                showError('Failed to load reviews. Please try again.');
+            });
+    }
+
+    // Review form functions
+    function openReviewForm() {
+        if (!currentApp) return;
+
+        // Check if user is logged in
+        if (!isAuthenticated) {
+            alert('Please login to write a review.');
+            window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
+            return;
         }
 
-        function renderReviews(reviews) {
-            const reviewsList = document.getElementById('reviewsList');
-            reviewsList.innerHTML = '';
+        // Update review modal with app info
+        document.getElementById('reviewAppTitle').textContent = currentApp.name;
+        document.getElementById('reviewAppCategory').textContent = currentApp.category || 'Unknown';
+        document.getElementById('reviewAppRating').textContent = (currentApp.rating ? parseFloat(currentApp.rating).toFixed(1) : 'N/A');
 
-            reviews.forEach(review => {
-                const reviewDiv = document.createElement('div');
-                reviewDiv.className = 'review-item';
+        // Reset form
+        document.getElementById('reviewForm').reset();
+        document.getElementById('reviewSubmissionMessage').style.display = 'none';
 
-                const sentimentClass = review.sentiment ?
-                    `sentiment-${review.sentiment.toLowerCase()}` : 'sentiment-neutral';
+        // Reset star ratings
+        document.querySelectorAll('.rating-input label').forEach(label => {
+            label.style.color = '#d1d5db';
+        });
 
-                const createdAt = review.created_at ?
-                    new Date(review.created_at).toLocaleDateString() : 'Unknown date';
+        // Show review modal
+        document.getElementById('reviewModal').style.display = 'block';
+    }
 
-                reviewDiv.innerHTML = `
-                    <div class="review-header">
-                        <div>
-                            <span class="sentiment-badge ${sentimentClass}">
-                                ${review.sentiment || 'Neutral'}
-                            </span>
-                            ${review.user ? ` • By ${review.user}` : ''}
-                        </div>
-                        <div>${createdAt}</div>
+    function closeReviewForm() {
+        document.getElementById('reviewModal').style.display = 'none';
+    }
+
+    async function submitReview(event) {
+        event.preventDefault();
+
+        if (!currentApp) return;
+
+        const formData = new FormData(event.target);
+        const rating = formData.get('rating');
+        const reviewText = document.getElementById('reviewText').value.trim();
+
+        // Validate input
+        if (!rating) {
+            alert('Please select a rating');
+            return;
+        }
+
+        if (reviewText.length < 10) {
+            alert('Review must be at least 10 characters long');
+            return;
+        }
+
+        try {
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name=csrf-token]').getAttribute('content');
+
+            const response = await fetch(`/reviews/api/app/${currentApp.id}/submit-review/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    rating: parseFloat(rating),
+                    review_text: reviewText
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                // Show success message
+                const messageDiv = document.getElementById('reviewSubmissionMessage');
+                messageDiv.innerHTML = `
+                    <div style="color: #059669; background: #d1fae5; padding: 1rem; border-radius: 6px;">
+                        <strong>Review submitted successfully!</strong><br>
+                        Your review has been submitted and is pending approval by our supervisors.
                     </div>
-                    <div class="review-text">${review.review_text}</div>
                 `;
+                messageDiv.style.display = 'block';
 
-                reviewsList.appendChild(reviewDiv);
-            });
-        }
+                // Hide form
+                document.getElementById('reviewForm').style.display = 'none';
 
-        function updatePagination(pagination) {
-            if (pagination.pages > 1) {
-                currentPage = pagination.page;
-                totalPages = pagination.pages;
+                // Auto-close after 3 seconds
+                setTimeout(() => {
+                    closeReviewForm();
+                }, 3000);
 
-                document.getElementById('pageInfo').textContent =
-                    `Page ${pagination.page} of ${pagination.pages}`;
-
-                document.getElementById('prevBtn').disabled = pagination.page <= 1;
-                document.getElementById('nextBtn').disabled = pagination.page >= pagination.pages;
-
-                document.getElementById('reviewsPagination').style.display = 'flex';
             } else {
-                document.getElementById('reviewsPagination').style.display = 'none';
+                throw new Error(result.error || 'Failed to submit review');
             }
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            const messageDiv = document.getElementById('reviewSubmissionMessage');
+            messageDiv.innerHTML = `
+                <div style="color: #dc2626; background: #fef2f2; padding: 1rem; border-radius: 6px;">
+                    <strong>Error:</strong> ${error.message}
+                </div>
+            `;
+            messageDiv.style.display = 'block';
         }
+    }
 
-        function changePage(direction) {
-            if (!currentApp) return;
+    // Star rating functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const ratingInputs = document.querySelectorAll('.rating-input input[type="radio"]');
+        const ratingLabels = document.querySelectorAll('.rating-input label');
 
-            const newPage = currentPage + direction;
-            if (newPage >= 1 && newPage <= totalPages) {
-                loadReviews(currentApp.id, newPage);
-            }
-        }
+        ratingLabels.forEach((label, index) => {
+            label.addEventListener('click', function() {
+                const value = this.getAttribute('for').replace('star', '');
 
-        // Review submission functions
-        function openReviewForm() {
-            if (!currentApp) return;
+                // Reset all stars
+                ratingLabels.forEach(l => l.style.color = '#d1d5db');
 
-            // Check if user is logged in
-            if (!isAuthenticated) {
-                alert('Please login to write a review.');
-                window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
-                return;
-            }
-
-            // Update review modal with app info
-            document.getElementById('reviewAppTitle').textContent = currentApp.name;
-            document.getElementById('reviewAppCategory').textContent = currentApp.category;
-            document.getElementById('reviewAppRating').textContent = currentApp.rating || 'N/A';
-
-            // Reset form
-            document.getElementById('reviewForm').reset();
-            document.getElementById('reviewSubmissionMessage').style.display = 'none';
-            document.getElementById('reviewForm').style.display = 'block';
-
-            // Reset star ratings
-            document.querySelectorAll('.rating-input label').forEach(label => {
-                label.style.color = '#d1d5db';
+                // Highlight selected stars (reverse order)
+                for (let i = ratingLabels.length - 1; i >= ratingLabels.length - value; i--) {
+                    ratingLabels[i].style.color = '#fbbf24';
+                }
             });
 
-            // Show review modal
-            document.getElementById('reviewModal').style.display = 'block';
-        }
+            label.addEventListener('mouseover', function() {
+                const value = this.getAttribute('for').replace('star', '');
 
-        function closeReviewForm() {
-            document.getElementById('reviewModal').style.display = 'none';
-        }
-
-        async function submitReview(event) {
-            event.preventDefault();
-
-            if (!currentApp) return;
-
-            const formData = new FormData(event.target);
-            const rating = formData.get('rating');
-            const reviewText = document.getElementById('reviewText').value.trim();
-
-            // Validate input
-            if (!rating) {
-                alert('Please select a rating');
-                return;
-            }
-
-            if (reviewText.length < 10) {
-                alert('Review must be at least 10 characters long');
-                return;
-            }
-
-            try {
-                // Get CSRF token from meta tag
-                const csrfToken = document.querySelector('meta[name=csrf-token]').getAttribute('content');
-
-                const response = await fetch(`/reviews/api/app/${currentApp.id}/submit-review/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken,
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({
-                        rating: parseFloat(rating),
-                        review_text: reviewText
-                    })
-                });
-
-                // Check if response is JSON
-                const contentType = response.headers.get("content-type");
-                let data;
-
-                if (contentType && contentType.indexOf("application/json") !== -1) {
-                    data = await response.json();
-                } else {
-                    // If not JSON, likely an error page or redirect
-                    const text = await response.text();
-                    throw new Error('Server returned non-JSON response. Please check if you are logged in.');
+                // Highlight on hover (reverse order)
+                ratingLabels.forEach(l => l.style.color = '#d1d5db');
+                for (let i = ratingLabels.length - 1; i >= ratingLabels.length - value; i--) {
+                    ratingLabels[i].style.color = '#fbbf24';
                 }
+            });
+        });
 
-                if (response.ok) {
-                    document.getElementById('reviewSubmissionMessage').innerHTML =
-                        '<div style="color: #065f46; background: #d1fae5; padding: 1rem; border-radius: 6px;">' +
-                        '<strong>Success!</strong> Your review has been submitted and is pending approval.' +
-                        '</div>';
-                    document.getElementById('reviewSubmissionMessage').style.display = 'block';
-                    document.getElementById('reviewForm').style.display = 'none';
-                } else {
-                    throw new Error(data.error || data.detail || 'Failed to submit review');
-                }
-            } catch (error) {
-                console.error('Error submitting review:', error);
-                let errorMessage = 'Failed to submit review. ';
-
-                if (error.message.includes('authentication')) {
-                    errorMessage += 'Please <a href="/accounts/login/">login</a> to submit a review.';
-                } else {
-                    errorMessage += error.message || 'Please try again.';
-                }
-
-                document.getElementById('reviewSubmissionMessage').innerHTML =
-                    '<div style="color: #991b1b; background: #fee2e2; padding: 1rem; border-radius: 6px;">' +
-                    '<strong>Error:</strong> ' + errorMessage +
-                    '</div>';
-                document.getElementById('reviewSubmissionMessage').style.display = 'block';
-            }
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
             const reviewsModal = document.getElementById('reviewsModal');
             const reviewModal = document.getElementById('reviewModal');
 
             if (event.target === reviewsModal) {
-                closeModal();
+                closeReviewsModal();
             }
-
             if (event.target === reviewModal) {
                 closeReviewForm();
             }
+        });
+    });
+
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('reviewsModal');
+        if (event.target === modal) {
+            closeReviewsModal();
         }
-
-        // Event listeners
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(autocompleteTimeout);
-            autocompleteTimeout = setTimeout(() => {
-                showAutocomplete(e.target.value);
-            }, 300);
-        });
-
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                hideAutocomplete();
-                performSearch();
-            }
-        });
-
-        searchBtn.addEventListener('click', performSearch);
-
-        // Review form event listener
-        document.getElementById('reviewForm').addEventListener('submit', submitReview);
-
-        // Rating input handler for visual feedback
-        document.querySelectorAll('input[name="rating"]').forEach(input => {
-            input.addEventListener('change', function() {
-                // Reset all stars
-                document.querySelectorAll('.rating-input label').forEach(label => {
-                    label.style.color = '#d1d5db';
-                });
-
-                // Color selected stars
-                const value = parseInt(this.value);
-                for (let i = 1; i <= value; i++) {
-                    document.querySelector(`label[for="star${i}"]`).style.color = '#fbbf24';
-                }
-            });
-        });
-
-        // Hide autocomplete when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.search-box')) {
-                hideAutocomplete();
-            }
-        });
-
-        // Load categories when page loads
-        loadCategories();
-    </script>
-</body>
-</html>
+    });
+</script>
+{% endblock %}

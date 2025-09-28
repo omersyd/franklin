@@ -277,7 +277,7 @@ def search_page(request):
     Render the search interface page
     """
     context = {
-        'title': 'App Search',
+        'title': 'Search Apps',
         'placeholder_text': 'Search for apps... (min 3 characters)',
         'is_authenticated': request.user.is_authenticated,
         'username': request.user.username if request.user.is_authenticated else None,

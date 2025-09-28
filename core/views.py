@@ -19,7 +19,22 @@ def status_view(request):
                 'message': 'Franklin Google Play Store Search App is running!'
             })
 
-        # HTML Response
+        # Use proper template with navbar for HTML response
+        context = {
+            'title': 'Home',
+            'app_count': app_count,
+            'review_count': review_count,
+        }
+        return render(request, 'home.html', context)
+
+    except Exception as e:
+        if request.GET.get('format') == 'json':
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=500)
+
+        # Fallback HTML template for errors
         html_template = """
         <!DOCTYPE html>
         <html>

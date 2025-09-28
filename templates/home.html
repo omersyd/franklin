@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block breadcrumb %}
+    <!-- Hide breadcrumb on homepage -->
+{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 3rem;">
+    <h1 style="font-size: 3rem; margin-bottom: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+        🔍 Welcome to Franklin Search
+    </h1>
+    <p style="font-size: 1.2rem; color: #666; margin-bottom: 2rem;">
+        Discover and explore Google Play Store apps with advanced search and reviews
+    </p>
+
+    <!-- Quick search on homepage -->
+    <div style="max-width: 500px; margin: 0 auto 2rem auto;">
+        <div style="position: relative;">
+            <input
+                type="text"
+                id="quickSearch"
+                placeholder="Quick search... (min 3 characters)"
+                style="width: 100%; padding: 1rem 1.5rem; font-size: 1.1rem; border: 2px solid #e0e0e0; border-radius: 50px; outline: none; transition: border-color 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                onkeydown="if(event.key==='Enter' && this.value.length>=3) window.location.href='/search/?q='+encodeURIComponent(this.value)"
+            >
+            <div style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #999; font-size: 0.9rem; pointer-events: none;">
+                Press Enter ⏎
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+    <div class="stat-card" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; border-left: 4px solid #667eea;">
+        <div style="font-size: 2.5rem; font-weight: bold; color: #667eea; margin-bottom: 0.5rem;">
+            {{ app_count|floatformat:0 }}
+        </div>
+        <div style="color: #666; font-size: 1.1rem;">Apps Available</div>
+    </div>
+
+    <div class="stat-card" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; border-left: 4px solid #764ba2;">
+        <div style="font-size: 2.5rem; font-weight: bold; color: #764ba2; margin-bottom: 0.5rem;">
+            {{ review_count|floatformat:0 }}
+        </div>
+        <div style="color: #666; font-size: 1.1rem;">Reviews Available</div>
+    </div>
+</div>
+
+<div class="features-section" style="background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 3rem;">
+    <h2 style="text-align: center; color: #333; margin-bottom: 2rem;">What You Can Do</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem;">
+        <div style="text-align: center; padding: 1.5rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+            <h3 style="color: #667eea; margin-bottom: 1rem;">Smart Search</h3>
+            <p style="color: #666; line-height: 1.6;">
+                Use our advanced trigram-based search to find apps with fuzzy matching and intelligent results
+            </p>
+        </div>
+
+        <div style="text-align: center; padding: 1.5rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">⭐</div>
+            <h3 style="color: #667eea; margin-bottom: 1rem;">Review Apps</h3>
+            <p style="color: #666; line-height: 1.6;">
+                Share your experience and read reviews from other users to make informed decisions
+            </p>
+        </div>
+
+        <div style="text-align: center; padding: 1.5rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+            <h3 style="color: #667eea; margin-bottom: 1rem;">Detailed Analytics</h3>
+            <p style="color: #666; line-height: 1.6;">
+                Get comprehensive app information including ratings, install counts, and categories
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="cta-section" style="text-align: center;">
+    <h2 style="color: #333; margin-bottom: 2rem;">Ready to Get Started?</h2>
+    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <a href="{% url 'search:search_page' %}" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2rem;">
+            🔍 Start Searching Apps
+        </a>
+        {% if not user.is_authenticated %}
+            <a href="{% url 'accounts:register' %}" class="btn btn-secondary" style="font-size: 1.1rem; padding: 1rem 2rem;">
+                📝 Sign Up Free
+            </a>
+        {% else %}
+            <a href="{% url 'accounts:profile' %}" class="btn btn-secondary" style="font-size: 1.1rem; padding: 1rem 2rem;">
+                👤 View Profile
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+        }
+
+        .cta-section div {
+            flex-direction: column !important;
+            align-items: center;
+        }
+
+        .cta-section .btn {
+            width: 100%;
+            max-width: 300px;
+        }
+    }
+</style>
+
+<script>
+    // Quick search functionality on homepage
+    const quickSearchInput = document.getElementById('quickSearch');
+
+    quickSearchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        const enterHint = this.nextElementSibling;
+
+        if (query.length >= 3) {
+            enterHint.style.color = '#667eea';
+            enterHint.style.fontWeight = '600';
+            this.style.borderColor = '#667eea';
+        } else {
+            enterHint.style.color = '#999';
+            enterHint.style.fontWeight = 'normal';
+            this.style.borderColor = '#e0e0e0';
+        }
+    });
+
+    quickSearchInput.addEventListener('focus', function() {
+        this.style.borderColor = '#667eea';
+        this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+    });
+
+    quickSearchInput.addEventListener('blur', function() {
+        if (this.value.length < 3) {
+            this.style.borderColor = '#e0e0e0';
+        }
+        this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+    });
+</script>
+{% endblock %}
