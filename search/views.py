@@ -39,14 +39,16 @@ def search_apps(request):
         except ValueError:
             pass
 
-    # Text search using trigrams
+    # Text search using trigrams with improved logic
     apps = apps.annotate(
         name_similarity=TrigramSimilarity('name', query),
         # Add more fields for similarity search
     ).filter(
-        Q(name_similarity__gt=0.1) |  # Name similarity threshold
-        Q(name__icontains=query) |    # Fallback contains search
-        Q(category__icontains=query)  # Category search
+        Q(name_similarity__gt=0.3) |  # Higher similarity threshold (30%)
+        Q(name__istartswith=query) |  # Exact prefix match (high priority)
+        Q(name__icontains=f' {query}') |  # Query as separate word
+        Q(name__icontains=f'{query} ') |  # Query followed by space (word boundary)
+        (Q(name__icontains=query) & Q(name_similarity__gt=0.2))  # Contains + some similarity
     ).order_by('-name_similarity', '-rating', '-reviews_count')[:limit]
 
     # Prepare results
