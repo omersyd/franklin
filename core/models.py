@@ -244,4 +244,7 @@ class ReviewApproval(models.Model):
         unique_together = ['review', 'supervisor']
 
     def __str__(self):
-        return f"{self.supervisor} {self.action}d review for {self.review.app.name}"
+        return (
+            f"{self.supervisor} {self.action}d review for "
+            f"{self.review.app.name}"
+        )
