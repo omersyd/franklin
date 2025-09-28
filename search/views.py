@@ -11,18 +11,20 @@ from core.models import App, Review
 def search_apps(request):
     """
     Advanced search for apps using PostgreSQL trigram similarity
-    Supports fuzzy matching and autocomplete functionality
+    Supports fuzzy matching and autocomplete functionality with pagination
     """
     query = request.GET.get('q', '').strip()
     category = request.GET.get('category', '')
     min_rating = request.GET.get('min_rating', '')
     limit = int(request.GET.get('limit', 20))
+    page = int(request.GET.get('page', 1))
 
     if len(query) < 3:
         return Response({
             'error': 'Query must be at least 3 characters long',
             'results': [],
-            'count': 0
+            'count': 0,
+            'pagination': {'page': page, 'pages': 0, 'total': 0}
         }, status=status.HTTP_400_BAD_REQUEST)
 
     # Base queryset
@@ -49,7 +51,15 @@ def search_apps(request):
         Q(name__icontains=f' {query}') |  # Query as separate word
         Q(name__icontains=f'{query} ') |  # Query followed by space (word boundary)
         (Q(name__icontains=query) & Q(name_similarity__gt=0.2))  # Contains + some similarity
-    ).order_by('-name_similarity', '-rating', '-reviews_count')[:limit]
+    ).order_by('-name_similarity', '-rating', '-reviews_count')
+
+    # Get total count before pagination
+    total_count = apps.count()
+    total_pages = (total_count + limit - 1) // limit
+
+    # Apply pagination
+    offset = (page - 1) * limit
+    apps = apps[offset:offset + limit]
 
     # Prepare results
     results = []
@@ -84,11 +94,19 @@ def search_apps(request):
 
     return Response({
         'results': results,
-        'count': len(results),
+        'count': total_count,  # Total count of all matching results
         'query': query,
         'filters': {
             'category': category,
             'min_rating': min_rating,
+        },
+        'pagination': {
+            'page': page,
+            'pages': total_pages,
+            'total': total_count,
+            'per_page': limit,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
         }
     })
 

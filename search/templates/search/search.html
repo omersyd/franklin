@@ -514,7 +514,11 @@
         <div class="results-count" id="resultsCount">0 results found</div>
     </div>
     <div id="searchResults"></div>
-    <button id="loadMoreBtn" class="load-more-btn" style="display: none;">Load More</button>
+    <div id="searchPagination" class="pagination-controls" style="display: none; text-align: center; margin-top: 2rem; gap: 1rem;">
+        <button id="searchPrevBtn" class="page-btn" type="button" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Previous</button>
+        <span id="searchPageInfo" class="page-info" style="margin: 0 1rem; font-size: 0.9rem; color: #666;"></span>
+        <button id="searchNextBtn" class="page-btn" type="button" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Next</button>
+    </div>
 </div>
 
 <div id="noResults" class="no-results" style="display: none;">
@@ -637,6 +641,11 @@
     let currentFilters = {};
     let hasMoreResults = true;
 
+    // Search pagination variables
+    let searchCurrentPage = 1;
+    let searchTotalPages = 1;
+    let searchTotalResults = 0;
+
     // Modal and review variables
     let currentApp = null;
     let reviewCurrentPage = 1;
@@ -651,7 +660,6 @@
     const autocompleteDropdown = document.getElementById('autocompleteDropdown');
     const resultsSection = document.getElementById('resultsSection');
     const searchResults = document.getElementById('searchResults');
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
     const loading = document.getElementById('loading');
     const noResults = document.getElementById('noResults');
     const resultsCount = document.getElementById('resultsCount');
@@ -669,8 +677,20 @@
     document.getElementById('ratingFilter').addEventListener('input', performSearch);
     document.getElementById('limitFilter').addEventListener('change', performSearch);
 
-    // Load more button
-    loadMoreBtn.addEventListener('click', loadMore);
+    // Pagination event listeners
+    document.getElementById('searchPrevBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Previous button clicked, current page:', searchCurrentPage);
+        changeSearchPage(-1);
+    });
+
+    document.getElementById('searchNextBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Next button clicked, current page:', searchCurrentPage);
+        changeSearchPage(1);
+    });
 
     // Hide autocomplete when clicking outside
     document.addEventListener('click', function(e) {
@@ -792,7 +812,9 @@
         });
     }
 
-    function performSearch(resetResults = true) {
+    function performSearch(resetResults = true, page = 1) {
+        console.log('performSearch called with:', { resetResults, page });
+
         const query = searchInput.value.trim();
 
         if (query.length < 3) {
@@ -805,8 +827,14 @@
         if (resetResults) {
             currentResults = [];
             currentPage = 1;
+            // Don't reset searchCurrentPage here - use the page parameter
             hasMoreResults = true;
+        } else {
+            searchCurrentPage = page;
         }
+
+        // Set the current page to the requested page
+        searchCurrentPage = page;
 
         currentQuery = query;
         currentFilters = {
@@ -820,6 +848,7 @@
 
         const params = new URLSearchParams({
             q: query,
+            page: searchCurrentPage,
             limit: currentFilters.limit,
             ...currentFilters
         });
@@ -834,6 +863,19 @@
             .then(data => {
                 hideLoading();
 
+                // Get pagination info from API response
+                if (data.pagination) {
+                    searchTotalResults = data.pagination.total;
+                    searchTotalPages = data.pagination.pages;
+                    searchCurrentPage = data.pagination.page;
+                } else {
+                    // Fallback for backward compatibility
+                    const limit = parseInt(currentFilters.limit);
+                    searchTotalResults = data.count;
+                    searchTotalPages = Math.ceil(searchTotalResults / limit);
+                    searchCurrentPage = page;
+                }
+
                 if (resetResults) {
                     currentResults = data.results;
                     displayResults(data.results, data.count);
@@ -842,8 +884,10 @@
                     appendResults(data.results);
                 }
 
-                hasMoreResults = data.results.length >= currentFilters.limit;
-                updateLoadMoreButton();
+                // Update pagination UI
+                updateSearchPagination();
+
+                // updateLoadMoreButton(); // Removed - using pagination instead
             })
             .catch(error => {
                 console.error('Search error:', error);
@@ -853,6 +897,7 @@
     }
 
     function loadMore() {
+        console.log('loadMore function called, currentPage:', currentPage);
         currentPage++;
         // For now, just perform the same search (API doesn't support pagination yet)
         // In a real implementation, you'd add offset/page parameters
@@ -867,7 +912,7 @@
 
         hideNoResults();
         resultsSection.style.display = 'block';
-        resultsCount.textContent = `${totalCount} result${totalCount !== 1 ? 's' : ''} found for "${currentQuery}"`;
+        resultsCount.textContent = `${searchTotalResults} result${searchTotalResults !== 1 ? 's' : ''} found for "${currentQuery}"`;
 
         searchResults.innerHTML = results.map(app => createAppCard(app)).join('');
 
@@ -879,9 +924,7 @@
             });
             card.setAttribute('data-has-listener', 'true');
         });
-    }
-
-    function appendResults(results) {
+    }    function appendResults(results) {
         const newCardsHTML = results.map(app => createAppCard(app)).join('');
         searchResults.insertAdjacentHTML('beforeend', newCardsHTML);
 
@@ -929,15 +972,6 @@
         `;
     }
 
-    function updateLoadMoreButton() {
-        if (hasMoreResults && currentResults.length >= currentFilters.limit) {
-            loadMoreBtn.style.display = 'block';
-            loadMoreBtn.disabled = false;
-        } else {
-            loadMoreBtn.style.display = 'none';
-        }
-    }
-
     function fetchCategories() {
         fetch('/search/api/categories/')
             .then(response => response.json())
@@ -977,14 +1011,73 @@
     function clearResults() {
         resultsSection.style.display = 'none';
         noResults.style.display = 'none';
+        document.getElementById('searchPagination').style.display = 'none';
         currentResults = [];
         currentPage = 1;
-        hasMoreResults = true;
+        searchCurrentPage = 1;
+        searchTotalPages = 1;
+        searchTotalResults = 0;
     }
 
     function showError(message) {
         // Simple error display - in a real app you'd have proper error UI
         alert(message);
+    }
+
+    // Search pagination functions
+    function updateSearchPagination() {
+        console.log('updateSearchPagination called:', {
+            searchCurrentPage,
+            searchTotalPages,
+            searchTotalResults
+        });
+
+        const pageInfo = document.getElementById('searchPageInfo');
+        const prevBtn = document.getElementById('searchPrevBtn');
+        const nextBtn = document.getElementById('searchNextBtn');
+        const paginationDiv = document.getElementById('searchPagination');
+
+        if (pageInfo && prevBtn && nextBtn && paginationDiv) {
+            pageInfo.textContent = `Page ${searchCurrentPage} of ${searchTotalPages} (${searchTotalResults} results)`;
+            prevBtn.disabled = searchCurrentPage <= 1;
+            nextBtn.disabled = searchCurrentPage >= searchTotalPages;
+
+            // Show pagination if more than one page
+            if (searchTotalPages > 1) {
+                paginationDiv.style.display = 'flex';
+                console.log('Showing pagination');
+            } else {
+                paginationDiv.style.display = 'none';
+                console.log('Hiding pagination - only', searchTotalPages, 'page(s)');
+            }
+        } else {
+            console.log('Pagination elements not found:', {
+                pageInfo: !!pageInfo,
+                prevBtn: !!prevBtn,
+                nextBtn: !!nextBtn,
+                paginationDiv: !!paginationDiv
+            });
+        }
+    }
+
+    function changeSearchPage(direction) {
+        console.log('changeSearchPage called with direction:', direction);
+        console.log('Current state:', {
+            searchCurrentPage,
+            searchTotalPages,
+            direction
+        });
+
+        const newPage = searchCurrentPage + direction;
+        console.log('Calculated newPage:', newPage);
+
+        if (newPage >= 1 && newPage <= searchTotalPages) {
+            console.log('Page change valid, calling performSearch');
+            searchCurrentPage = newPage;
+            performSearch(true, newPage);
+        } else {
+            console.log('Page change invalid - out of bounds');
+        }
     }
 
     // Modal functionality for app reviews
@@ -1032,7 +1125,7 @@
             // Update Write Review button based on authentication
             const writeReviewBtn = document.getElementById('writeReviewBtn');
             if (writeReviewBtn) {
-                if (isAuthenticated) {
+                if (isAuthenticated === 'true' || isAuthenticated === true) {
                     writeReviewBtn.textContent = 'Write Review';
                     writeReviewBtn.onclick = openReviewForm;
                     writeReviewBtn.style.display = 'inline-block';
@@ -1264,7 +1357,7 @@
         if (!currentApp) return;
 
         // Check if user is logged in
-        if (!isAuthenticated) {
+        if (isAuthenticated !== 'true' && isAuthenticated !== true) {
             alert('Please login to write a review.');
             window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
             return;
