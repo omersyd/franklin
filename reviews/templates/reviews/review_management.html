@@ -1,0 +1,487 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+    {% if not is_supervisor %}
+        <div class="alert alert-error">
+            <strong>Access Denied:</strong> You need supervisor privileges to access this page.
+            <a href="{% url 'search:search_page' %}" style="color: #667eea;">Go to Search</a>
+        </div>
+    {% else %}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h1 style="color: #333; margin: 0;">📋 Review Management</h1>
+            <div id="reviewStats" style="display: flex; gap: 1rem;">
+                <div style="background: #e0f2fe; padding: 0.5rem 1rem; border-radius: 6px; text-align: center;">
+                    <div style="font-weight: bold; color: #0277bd;">-</div>
+                    <div style="font-size: 0.8rem; color: #666;">Pending</div>
+                </div>
+                <div style="background: #f3e8ff; padding: 0.5rem 1rem; border-radius: 6px; text-align: center;">
+                    <div style="font-weight: bold; color: #7c3aed;">-</div>
+                    <div style="font-size: 0.8rem; color: #666;">Today</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                <button id="refreshBtn" class="btn btn-primary" onclick="loadPendingReviews()">
+                    🔄 Refresh
+                </button>
+                <div style="margin-left: auto; color: #666; font-size: 0.9rem;">
+                    <span id="lastUpdated">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading" style="display: none; text-align: center; padding: 2rem;">
+            <div class="spinner" style="margin: 0 auto;"></div>
+            <p style="margin-top: 1rem; color: #666;">Loading pending reviews...</p>
+        </div>
+
+        <!-- Reviews Container -->
+        <div id="reviewsContainer">
+            <!-- Reviews will be loaded here -->
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination" class="pagination-controls" style="display: none; justify-content: center; margin-top: 2rem;">
+            <button id="prevBtn" class="page-btn" onclick="changePage(-1)">← Previous</button>
+            <div class="page-info">
+                <span id="pageInfo">Page 1 of 1</span>
+            </div>
+            <button id="nextBtn" class="page-btn" onclick="changePage(1)">Next →</button>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Action Modal -->
+<div id="actionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle">Review Action</h2>
+            <button class="close" onclick="closeActionModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="reviewDetails" style="background: #f8fafc; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                <!-- Review details will be populated here -->
+            </div>
+
+            <div class="form-group">
+                <label for="actionComments">Comments (optional):</label>
+                <textarea
+                    id="actionComments"
+                    class="form-control"
+                    rows="3"
+                    placeholder="Add comments about your decision..."
+                ></textarea>
+            </div>
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeActionModal()">Cancel</button>
+                <button id="confirmActionBtn" class="btn btn-primary" onclick="confirmAction()">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Additional styles for review management */
+.review-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-left: 4px solid #e0e0e0;
+}
+
+.review-card.pending {
+    border-left-color: #f59e0b;
+}
+
+.review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.review-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.review-content {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+.review-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.btn-approve {
+    background: #10b981;
+    color: white;
+}
+
+.btn-approve:hover {
+    background: #059669;
+}
+
+.btn-reject {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-reject:hover {
+    background: #dc2626;
+}
+
+.rating-display {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.rating-stars {
+    color: #fbbf24;
+}
+
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
+    border-left: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-title {
+    margin: 0;
+    color: #333;
+}
+
+.close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.close:hover {
+    background-color: #f3f4f6;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+</style>
+
+<script>
+let currentPage = 1;
+let totalPages = 1;
+let currentAction = null;
+let currentReviewId = null;
+
+// Load pending reviews on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadPendingReviews();
+
+    // Auto-refresh every 30 seconds
+    setInterval(loadPendingReviews, 30000);
+});
+
+async function loadPendingReviews(page = 1) {
+    const loading = document.getElementById('loading');
+    const container = document.getElementById('reviewsContainer');
+    const pagination = document.getElementById('pagination');
+
+    loading.style.display = 'block';
+    container.innerHTML = '';
+
+    try {
+        const response = await fetch(`/reviews/api/pending/?page=${page}`, {
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        currentPage = data.pagination.current_page;
+        totalPages = data.pagination.total_pages;
+
+        // Update stats
+        updateStats(data.pagination.total_count);
+
+        // Render reviews
+        renderReviews(data.reviews);
+
+        // Update pagination
+        updatePagination(data.pagination);
+
+        // Update last updated time
+        document.getElementById('lastUpdated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        container.innerHTML = `
+            <div class="alert alert-error">
+                <strong>Error:</strong> Failed to load pending reviews. Please refresh the page.
+            </div>
+        `;
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+function renderReviews(reviews) {
+    const container = document.getElementById('reviewsContainer');
+
+    if (reviews.length === 0) {
+        container.innerHTML = `
+            <div class="review-card" style="text-align: center; padding: 3rem;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
+                <h3 style="color: #10b981; margin-bottom: 0.5rem;">All caught up!</h3>
+                <p style="color: #666;">No pending reviews to approve at the moment.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const reviewsHTML = reviews.map(review => `
+        <div class="review-card pending">
+            <div class="review-header">
+                <div>
+                    <h3 style="color: #333; margin-bottom: 0.5rem;">${review.app_name}</h3>
+                    <div class="review-meta">
+                        <span><strong>By:</strong> ${review.user_full_name || review.user_name}</span>
+                        <span><strong>Submitted:</strong> ${new Date(review.created_at).toLocaleDateString()}</span>
+                        ${review.rating ? `
+                        <div class="rating-display">
+                            <span class="rating-stars">${'★'.repeat(Math.floor(review.rating))}${'☆'.repeat(5 - Math.floor(review.rating))}</span>
+                            <span>${review.rating}/5</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                <div style="background: #fef3c7; color: #92400e; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 500;">
+                    PENDING
+                </div>
+            </div>
+
+            <div class="review-content">
+                <p>${review.review_text}</p>
+                ${review.sentiment ? `<div style="margin-top: 0.5rem;"><span style="background: ${getSentimentColor(review.sentiment)}; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">${review.sentiment}</span></div>` : ''}
+            </div>
+
+            <div class="review-actions">
+                <button class="btn btn-approve" onclick="openActionModal('approve', ${review.id}, '${review.app_name}', '${review.user_full_name || review.user_name}')">
+                    ✓ Approve
+                </button>
+                <button class="btn btn-reject" onclick="openActionModal('reject', ${review.id}, '${review.app_name}', '${review.user_full_name || review.user_name}')">
+                    ✗ Reject
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    container.innerHTML = reviewsHTML;
+}
+
+function getSentimentColor(sentiment) {
+    switch(sentiment) {
+        case 'Positive': return '#10b981';
+        case 'Negative': return '#ef4444';
+        case 'Neutral': return '#6b7280';
+        default: return '#6b7280';
+    }
+}
+
+function updateStats(totalPending) {
+    const statsElements = document.querySelectorAll('#reviewStats div:first-child div:first-child');
+    statsElements[0].textContent = totalPending;
+    // You could add more stats here, like reviews processed today
+}
+
+function updatePagination(pagination) {
+    const paginationDiv = document.getElementById('pagination');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageInfo = document.getElementById('pageInfo');
+
+    pageInfo.textContent = `Page ${pagination.current_page} of ${pagination.total_pages}`;
+    prevBtn.disabled = !pagination.has_previous;
+    nextBtn.disabled = !pagination.has_next;
+
+    paginationDiv.style.display = pagination.total_pages > 1 ? 'flex' : 'none';
+}
+
+function changePage(direction) {
+    const newPage = currentPage + direction;
+    if (newPage >= 1 && newPage <= totalPages) {
+        loadPendingReviews(newPage);
+    }
+}
+
+function openActionModal(action, reviewId, appName, userName) {
+    currentAction = action;
+    currentReviewId = reviewId;
+
+    const modal = document.getElementById('actionModal');
+    const title = document.getElementById('modalTitle');
+    const details = document.getElementById('reviewDetails');
+    const confirmBtn = document.getElementById('confirmActionBtn');
+
+    title.textContent = action === 'approve' ? 'Approve Review' : 'Reject Review';
+
+    details.innerHTML = `
+        <h4 style="margin: 0 0 0.5rem 0; color: #333;">Review for "${appName}"</h4>
+        <p style="margin: 0; color: #666;">By: ${userName}</p>
+    `;
+
+    confirmBtn.textContent = action === 'approve' ? 'Approve Review' : 'Reject Review';
+    confirmBtn.className = action === 'approve' ? 'btn btn-approve' : 'btn btn-reject';
+
+    document.getElementById('actionComments').value = '';
+    modal.style.display = 'block';
+}
+
+function closeActionModal() {
+    document.getElementById('actionModal').style.display = 'none';
+    currentAction = null;
+    currentReviewId = null;
+}
+
+async function confirmAction() {
+    if (!currentAction || !currentReviewId) return;
+
+    const comments = document.getElementById('actionComments').value;
+    const confirmBtn = document.getElementById('confirmActionBtn');
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Processing...';
+
+    try {
+        // Get CSRF token
+        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') ||
+                         document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+        const response = await fetch(`/reviews/api/${currentAction}/${currentReviewId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                comments: comments
+            })
+        });
+
+        if (response.ok) {
+            closeActionModal();
+            loadPendingReviews(currentPage); // Reload current page
+
+            // Show success message
+            const container = document.getElementById('reviewsContainer');
+            container.insertAdjacentHTML('afterbegin', `
+                <div class="alert alert-success" style="margin-bottom: 1rem;">
+                    Review ${currentAction}d successfully!
+                </div>
+            `);
+
+            // Remove success message after 3 seconds
+            setTimeout(() => {
+                const alert = container.querySelector('.alert-success');
+                if (alert) alert.remove();
+            }, 3000);
+
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Action failed');
+        }
+
+    } catch (error) {
+        console.error('Error processing action:', error);
+        alert('Error: ' + error.message);
+    } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = currentAction === 'approve' ? 'Approve Review' : 'Reject Review';
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('actionModal');
+    if (event.target === modal) {
+        closeActionModal();
+    }
+}
+</script>
+{% endblock %}

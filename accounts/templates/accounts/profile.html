@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="form-container">
+    <h2 class="text-center">My Profile</h2>
+    <p class="text-center" style="color: #666; margin-bottom: 2rem;">
+        Manage your account information
+    </p>
+
+    <div style="background: #f8fafc; padding: 1rem; border-radius: 6px; margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin: 0; color: #333;">{{ user.get_full_name|default:user.username }}</h3>
+                <p style="margin: 0.5rem 0 0 0; color: #666;">{{ user.email }}</p>
+            </div>
+            <div>
+                <span style="background: {% if user.is_supervisor %}#ddd6fe{% else %}#e0f2fe{% endif %};
+                             color: {% if user.is_supervisor %}#5b21b6{% else %}#0277bd{% endif %};
+                             padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem;">
+                    {{ user.get_role_display }}
+                </span>
+            </div>
+        </div>
+        <div style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+            <strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="{{ form.first_name.id_for_label }}">First Name:</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}
+                <div style="color: #dc2626; margin-top: 0.5rem;">
+                    {{ form.first_name.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.last_name.id_for_label }}">Last Name:</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}
+                <div style="color: #dc2626; margin-top: 0.5rem;">
+                    {{ form.last_name.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.email.id_for_label }}">Email:</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+                <div style="color: #dc2626; margin-top: 0.5rem;">
+                    {{ form.email.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+            Update Profile
+        </button>
+    </form>
+
+    <div class="text-center mt-3">
+        <a href="{% url 'search:search_page' %}" class="btn btn-secondary">
+            Back to Search
+        </a>
+    </div>
+</div>
+{% endblock %}

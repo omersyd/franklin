@@ -10,10 +10,10 @@ urlpatterns = [
     path('api/app/<int:app_id>/submit-review/', views.submit_review,
          name='submit_review'),
     path('api/pending/', views.get_pending_reviews, name='pending_reviews'),
-    path('api/approve/<int:approval_id>/', views.approve_review,
+    path('api/approve/<int:review_id>/', views.approve_review,
          name='approve_review'),
-    path('api/dashboard/', views.supervisor_dashboard,
-         name='supervisor_dashboard'),
+    path('api/reject/<int:review_id>/', views.reject_review,
+         name='reject_review'),
 
     # Web interface
     path('', views.review_management_page, name='review_management'),

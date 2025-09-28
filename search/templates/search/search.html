@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{{ title }} - Franklin Search</title>
     <style>
         * {
@@ -199,6 +200,63 @@
             padding: 3rem;
             color: #6b7280;
             display: none;
+        }
+
+        /* Rating Input Styles */
+        .rating-input {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .rating-input input[type="radio"] {
+            display: none;
+        }
+
+        .rating-input label {
+            font-size: 2rem;
+            color: #d1d5db;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .rating-input input[type="radio"]:checked ~ label,
+        .rating-input input[type="radio"]:checked + label {
+            color: #fbbf24;
+        }
+
+        .rating-input input[type="radio"]:hover ~ label,
+        .rating-input input[type="radio"]:hover + label {
+            color: #fbbf24;
+        }
+
+        /* Form styles */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         @media (max-width: 768px) {
@@ -471,9 +529,12 @@
                             <span id="modalAppInstalls"></span> installs
                         </div>
                     </div>
-                </div>
-
-                <div class="reviews-section">
+                    <div>
+                        <button id="writeReviewBtn" class="btn btn-primary" onclick="openReviewForm()">
+                            Write Review
+                        </button>
+                    </div>
+                </div>                <div class="reviews-section">
                     <h4 id="reviewsTitle">Loading reviews...</h4>
                     <div id="reviewsList"></div>
                     <div id="reviewsPagination" class="pagination-controls" style="display: none;">
@@ -486,7 +547,70 @@
         </div>
     </div>
 
+    <!-- Review Submission Modal -->
+    <div id="reviewModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Write a Review</h2>
+                <button class="close" onclick="closeReviewForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="reviewAppInfo" class="app-info">
+                    <div class="app-details">
+                        <h3 id="reviewAppTitle"></h3>
+                        <div class="app-stats">
+                            <span id="reviewAppCategory"></span> •
+                            <span id="reviewAppRating"></span>★
+                        </div>
+                    </div>
+                </div>
+
+                <form id="reviewForm">
+                    <div class="form-group">
+                        <label for="reviewRating">Your Rating:</label>
+                        <div class="rating-input">
+                            <input type="radio" name="rating" value="1" id="star1">
+                            <label for="star1">★</label>
+                            <input type="radio" name="rating" value="2" id="star2">
+                            <label for="star2">★</label>
+                            <input type="radio" name="rating" value="3" id="star3">
+                            <label for="star3">★</label>
+                            <input type="radio" name="rating" value="4" id="star4">
+                            <label for="star4">★</label>
+                            <input type="radio" name="rating" value="5" id="star5">
+                            <label for="star5">★</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reviewText">Your Review:</label>
+                        <textarea
+                            id="reviewText"
+                            class="form-control"
+                            rows="4"
+                            placeholder="Share your experience with this app..."
+                            minlength="10"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            Submit Review
+                        </button>
+                    </div>
+                </form>
+
+                <div id="reviewSubmissionMessage" style="display: none; text-align: center; padding: 1rem;"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Authentication status from Django
+        const isAuthenticated = "{{ is_authenticated|yesno:'true,false' }}";
+        const username = "{{ username|default:'' }}";
+
         let searchTimeout;
         let autocompleteTimeout;
 
@@ -662,6 +786,18 @@
             document.getElementById('reviewsModal').style.display = 'block';
             document.body.style.overflow = 'hidden'; // Prevent background scrolling
 
+            // Update Write Review button based on authentication
+            const writeReviewBtn = document.getElementById('writeReviewBtn');
+            if (isAuthenticated) {
+                writeReviewBtn.textContent = 'Write Review';
+                writeReviewBtn.onclick = openReviewForm;
+            } else {
+                writeReviewBtn.textContent = 'Login to Write Review';
+                writeReviewBtn.onclick = function() {
+                    window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
+                };
+            }
+
             // Load reviews
             loadReviews(app.id, 1);
         }
@@ -757,11 +893,128 @@
             }
         }
 
+        // Review submission functions
+        function openReviewForm() {
+            if (!currentApp) return;
+
+            // Check if user is logged in
+            if (!isAuthenticated) {
+                alert('Please login to write a review.');
+                window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
+                return;
+            }
+
+            // Update review modal with app info
+            document.getElementById('reviewAppTitle').textContent = currentApp.name;
+            document.getElementById('reviewAppCategory').textContent = currentApp.category;
+            document.getElementById('reviewAppRating').textContent = currentApp.rating || 'N/A';
+
+            // Reset form
+            document.getElementById('reviewForm').reset();
+            document.getElementById('reviewSubmissionMessage').style.display = 'none';
+            document.getElementById('reviewForm').style.display = 'block';
+
+            // Reset star ratings
+            document.querySelectorAll('.rating-input label').forEach(label => {
+                label.style.color = '#d1d5db';
+            });
+
+            // Show review modal
+            document.getElementById('reviewModal').style.display = 'block';
+        }
+
+        function closeReviewForm() {
+            document.getElementById('reviewModal').style.display = 'none';
+        }
+
+        async function submitReview(event) {
+            event.preventDefault();
+
+            if (!currentApp) return;
+
+            const formData = new FormData(event.target);
+            const rating = formData.get('rating');
+            const reviewText = document.getElementById('reviewText').value.trim();
+
+            // Validate input
+            if (!rating) {
+                alert('Please select a rating');
+                return;
+            }
+
+            if (reviewText.length < 10) {
+                alert('Review must be at least 10 characters long');
+                return;
+            }
+
+            try {
+                // Get CSRF token from meta tag
+                const csrfToken = document.querySelector('meta[name=csrf-token]').getAttribute('content');
+
+                const response = await fetch(`/reviews/api/app/${currentApp.id}/submit-review/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        rating: parseFloat(rating),
+                        review_text: reviewText
+                    })
+                });
+
+                // Check if response is JSON
+                const contentType = response.headers.get("content-type");
+                let data;
+
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    data = await response.json();
+                } else {
+                    // If not JSON, likely an error page or redirect
+                    const text = await response.text();
+                    throw new Error('Server returned non-JSON response. Please check if you are logged in.');
+                }
+
+                if (response.ok) {
+                    document.getElementById('reviewSubmissionMessage').innerHTML =
+                        '<div style="color: #065f46; background: #d1fae5; padding: 1rem; border-radius: 6px;">' +
+                        '<strong>Success!</strong> Your review has been submitted and is pending approval.' +
+                        '</div>';
+                    document.getElementById('reviewSubmissionMessage').style.display = 'block';
+                    document.getElementById('reviewForm').style.display = 'none';
+                } else {
+                    throw new Error(data.error || data.detail || 'Failed to submit review');
+                }
+            } catch (error) {
+                console.error('Error submitting review:', error);
+                let errorMessage = 'Failed to submit review. ';
+
+                if (error.message.includes('authentication')) {
+                    errorMessage += 'Please <a href="/accounts/login/">login</a> to submit a review.';
+                } else {
+                    errorMessage += error.message || 'Please try again.';
+                }
+
+                document.getElementById('reviewSubmissionMessage').innerHTML =
+                    '<div style="color: #991b1b; background: #fee2e2; padding: 1rem; border-radius: 6px;">' +
+                    '<strong>Error:</strong> ' + errorMessage +
+                    '</div>';
+                document.getElementById('reviewSubmissionMessage').style.display = 'block';
+            }
+        }
+
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('reviewsModal');
-            if (event.target === modal) {
+            const reviewsModal = document.getElementById('reviewsModal');
+            const reviewModal = document.getElementById('reviewModal');
+
+            if (event.target === reviewsModal) {
                 closeModal();
+            }
+
+            if (event.target === reviewModal) {
+                closeReviewForm();
             }
         }
 
@@ -781,6 +1034,25 @@
         });
 
         searchBtn.addEventListener('click', performSearch);
+
+        // Review form event listener
+        document.getElementById('reviewForm').addEventListener('submit', submitReview);
+
+        // Rating input handler for visual feedback
+        document.querySelectorAll('input[name="rating"]').forEach(input => {
+            input.addEventListener('change', function() {
+                // Reset all stars
+                document.querySelectorAll('.rating-input label').forEach(label => {
+                    label.style.color = '#d1d5db';
+                });
+
+                // Color selected stars
+                const value = parseInt(this.value);
+                for (let i = 1; i <= value; i++) {
+                    document.querySelector(`label[for="star${i}"]`).style.color = '#fbbf24';
+                }
+            });
+        });
 
         // Hide autocomplete when clicking outside
         document.addEventListener('click', (e) => {

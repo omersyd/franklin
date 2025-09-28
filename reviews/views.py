@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
@@ -53,8 +54,9 @@ def get_app_reviews(request, app_id):
                 'sentiment': review.sentiment,
                 'sentiment_polarity': review.sentiment_polarity,
                 'user': review.user.username if review.user else 'Anonymous',
-                'status': review.status,
+                'rating': review.rating,  # Include user rating
                 'created_at': review.created_at,
+                # Note: status is NOT included in public API for security
             })
 
         total_count = reviews.count()
@@ -128,19 +130,14 @@ def submit_review(request, app_id):
         else:
             sentiment = 'Negative'
 
-        # Create review
+        # Create review with pending status for user-submitted reviews
         review = Review.objects.create(
             app=app,
             user=request.user,
             review_text=review_text,
             sentiment=sentiment,
             rating=rating,
-        )
-
-        # Create approval record (pending by default)
-        ReviewApproval.objects.create(
-            review=review,
-            status='pending'
+            status='pending'  # User-submitted reviews need approval
         )
 
         return Response({
@@ -336,3 +333,136 @@ def review_management_page(request):
         ),
     }
     return render(request, 'reviews/review_management.html', context)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_pending_reviews(request):
+    """
+    Get all pending reviews for supervisor approval
+    """
+    # Check if user is supervisor
+    if not request.user.is_supervisor():
+        return Response({
+            'error': 'Access denied. Supervisor privileges required.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    # Get query parameters
+    page = int(request.GET.get('page', 1))
+    limit = int(request.GET.get('limit', 20))
+
+    # Get pending reviews
+    reviews = Review.objects.filter(
+        status='pending'
+    ).select_related('user', 'app').order_by('-created_at')
+
+    # Pagination
+    start = (page - 1) * limit
+    end = start + limit
+    total_count = reviews.count()
+    paginated_reviews = reviews[start:end]
+
+    # Prepare response
+    review_data = []
+    for review in paginated_reviews:
+        review_data.append({
+            'id': review.id,
+            'app_name': review.app.name,
+            'app_id': review.app.id,
+            'user_name': review.user.username if review.user else 'Anonymous',
+            'user_full_name': review.user.get_full_name() if review.user else 'Anonymous',
+            'review_text': review.review_text,
+            'rating': review.rating,
+            'sentiment': review.sentiment,
+            'created_at': review.created_at,
+            'status': review.status
+        })
+
+    return Response({
+        'reviews': review_data,
+        'pagination': {
+            'current_page': page,
+            'total_pages': (total_count + limit - 1) // limit,
+            'total_count': total_count,
+            'has_next': end < total_count,
+            'has_previous': page > 1
+        }
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def approve_review(request, review_id):
+    """
+    Approve a pending review
+    """
+    # Check if user is supervisor
+    if not request.user.is_supervisor():
+        return Response({
+            'error': 'Access denied. Supervisor privileges required.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        review = Review.objects.get(id=review_id, status='pending')
+        comments = request.data.get('comments', '')
+
+        # Update review status
+        review.status = 'approved'
+        review.save()
+
+        # Create approval record
+        ReviewApproval.objects.create(
+            review=review,
+            supervisor=request.user,
+            action='approve',
+            comments=comments
+        )
+
+        return Response({
+            'message': 'Review approved successfully',
+            'review_id': review.id
+        })
+
+    except Review.DoesNotExist:
+        return Response({
+            'error': 'Review not found or already processed'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reject_review(request, review_id):
+    """
+    Reject a pending review
+    """
+    # Check if user is supervisor
+    if not request.user.is_supervisor():
+        return Response({
+            'error': 'Access denied. Supervisor privileges required.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        review = Review.objects.get(id=review_id, status='pending')
+        comments = request.data.get('comments', '')
+
+        # Update review status
+        review.status = 'rejected'
+        review.save()
+
+        # Create approval record
+        ReviewApproval.objects.create(
+            review=review,
+            supervisor=request.user,
+            action='reject',
+            comments=comments
+        )
+
+        return Response({
+            'message': 'Review rejected successfully',
+            'review_id': review.id
+        })
+
+    except Review.DoesNotExist:
+        return Response({
+            'error': 'Review not found or already processed'
+        }, status=status.HTTP_404_NOT_FOUND)

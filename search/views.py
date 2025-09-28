@@ -211,10 +211,16 @@ def get_app_reviews(request, app_id):
         limit = int(request.GET.get('limit', 10))
         offset = (page - 1) * limit
 
-        # Get reviews for this app
-        reviews = Review.objects.filter(app=app).select_related('app')
+        # Get reviews for this app - only approved and imported reviews for public view
+        reviews = Review.objects.filter(
+            app=app,
+            status__in=['approved', 'imported']
+        ).select_related('app')
         reviews = reviews.order_by('-created_at', 'id')[offset:offset + limit]
-        total_reviews = Review.objects.filter(app=app).count()
+        total_reviews = Review.objects.filter(
+            app=app,
+            status__in=['approved', 'imported']
+        ).count()
 
         # Serialize reviews data
         reviews_data = []
@@ -225,12 +231,13 @@ def get_app_reviews(request, app_id):
                 'sentiment': review.sentiment,
                 'sentiment_polarity': review.sentiment_polarity,
                 'sentiment_subjectivity': review.sentiment_subjectivity,
+                'rating': review.rating,  # Include user rating
                 'created_at': (
                     review.created_at.isoformat()
                     if review.created_at else None
                 ),
                 'user': review.user.username if review.user else None,
-                'status': review.status,
+                # Note: status field removed for security - public API should not expose internal status
             }
             reviews_data.append(review_dict)
 
@@ -270,5 +277,7 @@ def search_page(request):
     context = {
         'title': 'App Search',
         'placeholder_text': 'Search for apps... (min 3 characters)',
+        'is_authenticated': request.user.is_authenticated,
+        'username': request.user.username if request.user.is_authenticated else None,
     }
     return render(request, 'search/search.html', context)

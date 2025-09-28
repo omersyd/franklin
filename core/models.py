@@ -142,6 +142,14 @@ class Review(models.Model):
         help_text='Review content'
     )
 
+    # User rating (for user-submitted reviews)
+    rating = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1.0), MaxValueValidator(5.0)],
+        help_text='User rating (1-5 stars, null for imported reviews)'
+    )
+
     # Sentiment analysis
     sentiment = models.CharField(
         max_length=10,

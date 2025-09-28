@@ -21,6 +21,7 @@ from core.views import status_view
 urlpatterns = [
     path('', status_view, name='status'),
     path('admin/', admin.site.urls),
+    path('accounts/', include('accounts.urls')),
     path('search/', include('search.urls')),
     path('reviews/', include('reviews.urls')),
 ]
